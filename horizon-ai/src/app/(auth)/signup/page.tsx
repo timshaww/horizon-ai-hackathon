@@ -151,8 +151,19 @@ const SignUpPage = () => {
         name: `${formData.firstName} ${formData.lastName}`,
         role: formData.role,
       });
-      router.push("/dashboard");
-    } catch (error) {
+      switch (formData.role) {
+        case "patient":
+          router.push("/patients");
+          break;
+        case "therapist":
+          router.push("/therapists");
+          break;
+        default:
+          router.push("/");
+          break;
+    } 
+  }
+    catch (error) {
       console.error("Error during sign up:", error);
       setError(getFirebaseErrorMessage(error));
     } finally {
