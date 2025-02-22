@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "@/app/utils/firebase/config";
 
 // Password Strength Component
 const PasswordStrength: React.FC<{ password: string }> = ({ password }) => {
@@ -99,6 +101,7 @@ interface FormData {
   email: string;
   password: string;
   confirmPassword: string;
+  role: string;
 }
 
 const SignUpPage = () => {
@@ -113,9 +116,10 @@ const SignUpPage = () => {
     email: "",
     password: "",
     confirmPassword: "",
+    role: "patient",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -136,7 +140,17 @@ const SignUpPage = () => {
     }
 
     try {
-      await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+      const user = userCredential.user;
+      await setDoc(doc(db, "users", user.uid), {
+        email: formData.email,
+        name: `${formData.firstName} ${formData.lastName}`,
+        role: formData.role,
+      });
       router.push("/dashboard");
     } catch (error) {
       console.error("Error during sign up:", error);
@@ -249,6 +263,21 @@ const SignUpPage = () => {
                     required
                     className="border-[#AFD3E2] focus:border-[#146C94] text-[#146C94] placeholder:text-[#146C94]/50"
                   />
+                </div>
+
+                <div className="grid gap-2">
+                <Label htmlFor="role" className="text-[#146C94]">I am a...</Label>
+                <select
+                  id="role"
+                  name="role"
+                  value={formData.role}
+                  onChange={handleChange}
+                  required
+                  className="border border-[#AFD3E2] focus:border-[#146C94] text-[#146C94] p-2 rounded"
+                >
+                    <option value="patient" selected>Patient</option>
+                  <option value="therapist">Therapist</option>
+                </select>
                 </div>
 
                 <div className="grid gap-2">
