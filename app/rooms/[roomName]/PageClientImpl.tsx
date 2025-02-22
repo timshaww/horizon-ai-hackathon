@@ -23,6 +23,8 @@ import {
 } from 'livekit-client';
 import { useRouter } from 'next/navigation';
 import React from 'react';
+import Transcriptions from "@/app/componenttrans/Transcriptions";
+import TranscriptionsTest from "@/app/componenttrans/TranscriptionsTest";
 
 const CONN_DETAILS_ENDPOINT =
   process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT ?? '/api/connection-details';
@@ -197,6 +199,8 @@ function VideoConferenceComponent(props: {
           SettingsComponent={SHOW_SETTINGS_MENU ? SettingsMenu : undefined}
         />
         <DebugMode />
+        <Transcriptions />
+        <TranscriptionsTest />
         {/* <RecordingIndicator /> */}
       </LiveKitRoom>
     </>
