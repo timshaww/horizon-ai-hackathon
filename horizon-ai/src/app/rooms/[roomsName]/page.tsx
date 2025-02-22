@@ -1,6 +1,6 @@
-import * as React from 'react';
-import { isVideoCodec } from '@/lib/types';
-import { PageClientImpl } from './PageClientImpl';
+import * as React from "react";
+import { isVideoCodec } from "@/lib/types";
+import { PageClientImpl } from "./componenet/PageClientImplementation";
 
 export default function Page({
   params,
@@ -15,12 +15,17 @@ export default function Page({
   };
 }) {
   const codec =
-    typeof searchParams.codec === 'string' && isVideoCodec(searchParams.codec)
+    typeof searchParams.codec === "string" && isVideoCodec(searchParams.codec)
       ? searchParams.codec
-      : 'vp9';
-  const hq = searchParams.hq === 'true' ? true : false;
+      : "vp9";
+  const hq = searchParams.hq === "true" ? true : false;
 
   return (
-    <PageClientImpl roomName={params.roomName} region={searchParams.region} hq={hq} codec={codec} />
+    <PageClientImpl
+      roomName={params.roomName}
+      region={searchParams.region}
+      hq={hq}
+      codec={codec}
+    />
   );
 }
