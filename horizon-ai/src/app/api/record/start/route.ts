@@ -37,8 +37,10 @@ export async function GET(req: NextRequest) {
       return new NextResponse('Meeting is already being recorded', { status: 409 });
     }
 
+    const fileName = `${new Date(Date.now()).toISOString()}-${roomName}.mp4`
+
     const fileOutput = new EncodedFileOutput({
-      filepath: `${new Date(Date.now()).toISOString()}-${roomName}.mp4`,
+      filepath: fileName,
       output: {
         case: 's3',
         value: new S3Upload({
@@ -61,7 +63,7 @@ export async function GET(req: NextRequest) {
       },
     );
 
-    return new NextResponse(null, { status: 200 });
+    return new NextResponse(fileName, { status: 200 });
   } catch (error) {
     if (error instanceof Error) {
       return new NextResponse(error.message, { status: 500 });
