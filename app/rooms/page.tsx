@@ -3,8 +3,7 @@
 import { useRouter } from 'next/navigation';
 import React, { Suspense, useState } from 'react';
 import { encodePassphrase, generateRoomId, randomString } from '@/lib/client-utils';
-import styles from '../styles/Home.module.css';
-
+import styles from '../../styles/Home.module.css';
 export default function Page() {
   const router = useRouter();
   const [e2ee, setE2ee] = useState(false);
