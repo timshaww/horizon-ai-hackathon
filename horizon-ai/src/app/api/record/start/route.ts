@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       return new NextResponse('Meeting is already being recorded', { status: 409 });
     }
 
-    const fileName = `${new Date(Date.now()).toISOString()}-${roomName}.mp4`
+    const fileName = `${roomName}.mp4`
 
     const fileOutput = new EncodedFileOutput({
       filepath: fileName,
