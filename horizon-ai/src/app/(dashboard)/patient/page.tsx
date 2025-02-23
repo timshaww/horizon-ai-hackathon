@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { getFirestore, collection, query, where, getDocs, doc, getDoc } from "firebase/firestore"
+import { getAuth, onAuthStateChanged } from "firebase/auth"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { 
@@ -12,7 +14,8 @@ import {
   ArrowRight,
   CalendarDays
 } from "lucide-react"
-import { useRouter } from "next/router"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 // Helper function to get greeting based on time of day
 const getGreeting = () => {
@@ -38,12 +41,35 @@ const quotes = [
   }
 ]
 
+// Interface for session data
+interface Session {
+  id: string;
+  sessionDate: Date;
+  therapistId: string;
+  therapist: string;
+  summary: string;
+  status: string;
+  patientId: string;
+}
+
 export default function PatientDashboard() {
   const [greeting, setGreeting] = useState("")
   const [quote, setQuote] = useState(quotes[0])
+  const [userName, setUserName] = useState("User")
+  const [nextSession, setNextSession] = useState<Session | null>(null)
+  const [lastSession, setLastSession] = useState<Session | null>(null)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
-  // Update greeting and quote
+  // Function to fetch therapist name
+  const getTherapistName = async (therapistId: string, db: any) => {
+    const therapistRef = doc(db, "users", therapistId)
+    const therapistSnap = await getDoc(therapistRef)
+    return therapistSnap.exists() ? `Dr. ${therapistSnap.data().last_name}` : "Unknown Therapist"
+  }
+
   useEffect(() => {
+    // Set initial greeting and random quote
     setGreeting(getGreeting())
     const randomQuote = quotes[Math.floor(Math.random() * quotes.length)]
     setQuote(randomQuote)
@@ -53,18 +79,84 @@ export default function PatientDashboard() {
       setGreeting(getGreeting())
     }, 60000)
 
-    return () => clearInterval(interval)
+    // Fetch user data and sessions
+    const auth = getAuth()
+    const db = getFirestore()
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const uid = user.uid
+          const userDocRef = doc(db, "users", uid)
+          const userDocSnap = await getDoc(userDocRef)
+          if (userDocSnap.exists()) {
+            const data = userDocSnap.data()
+            setUserName(data.first_name ? 
+              data.first_name.charAt(0).toUpperCase() + data.first_name.slice(1) : 
+              user.email ? user.email.split("@")[0] : "User")
+          }
+
+          // Fetch sessions
+          const sessionsRef = collection(db, "sessions")
+          const q = query(sessionsRef, where("patientId", "==", uid))
+          const querySnapshot = await getDocs(q)
+          const fetchedSessions: Session[] = await Promise.all(
+            querySnapshot.docs.map(async (sessionDoc) => {
+              const data = sessionDoc.data()
+              const therapistName = await getTherapistName(data.therapistId, db)
+              return {
+                id: sessionDoc.id,
+                sessionDate: data.sessionDate.toDate(),
+                therapistId: data.therapistId,
+                therapist: therapistName,
+                summary: data.summary || "No summary available",
+                status: data.status || "unknown",
+                patientId: data.patientId,
+              }
+            })
+          )
+
+          // Sort sessions by date
+          fetchedSessions.sort((a, b) => a.sessionDate.getTime() - b.sessionDate.getTime())
+
+          // Find next upcoming session
+          const now = new Date()
+          const upcoming = fetchedSessions.find(session => session.sessionDate > now && session.status === "scheduled")
+          setNextSession(upcoming || null)
+
+          // Find most recent past session
+          const pastSessions = fetchedSessions.filter(session => session.sessionDate <= now)
+          const recentPast = pastSessions[pastSessions.length - 1]
+          setLastSession(recentPast || null)
+        } catch (error) {
+          console.error("Error fetching data:", error)
+        } finally {
+          setLoading(false)
+        }
+      } else {
+        setUserName("Guest")
+        setLoading(false)
+      }
+    })
+
+    return () => {
+      clearInterval(interval)
+      unsubscribe()
+    }
   }, [])
+
+  if (loading) {
+    return <div className="p-6 max-w-6xl mx-auto">Loading dashboard...</div>
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header Section */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-[#146C94]">
-          {greeting}, John
+          {greeting}, {userName}
         </h1>
         <p className="text-gray-600 mt-2">
-          We&apos;re here to support your journey to better mental health
+          We're here to support your journey to better mental health
         </p>
       </div>
 
@@ -74,7 +166,7 @@ export default function PatientDashboard() {
           <CardContent className="pt-6">
             <Button 
               className="w-full bg-[#146C94] hover:bg-[#146C94]/90"
-              onClick={() => console.log("Schedule appointment")}
+              onClick={() => router.push("/patient/schedule")}
             >
               <Plus className="mr-2 h-4 w-4" />
               Schedule Appointment
@@ -84,13 +176,12 @@ export default function PatientDashboard() {
 
         <Card className="hover:shadow-lg transition-shadow">
           <CardContent className="pt-6">
-            <Button 
-              className="w-full bg-[#146C94] hover:bg-[#146C94]/90"
-              onClick={() => console.log("Start journal entry")}
-            >
-              <BookOpen className="mr-2 h-4 w-4" />
-              New Journal Entry
-            </Button>
+            <Link href="/patient/journal">
+              <Button className="w-full bg-[#146C94] hover:bg-[#146C94]/90">
+                <BookOpen className="mr-2 h-4 w-4" />
+                New Journal Entry
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
@@ -118,21 +209,25 @@ export default function PatientDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-gray-500" />
-                  <span>Thursday, Feb 24, 2025</span>
+            {nextSession ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-gray-500" />
+                    <span>{nextSession.sessionDate.toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-gray-500" />
+                    <span>{nextSession.sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-gray-500" />
-                  <span>3:00 PM</span>
-                </div>
+                <p className="text-sm text-gray-600">
+                  With {nextSession.therapist} - Video Session
+                </p>
               </div>
-              <p className="text-sm text-gray-600">
-                With Dr. Sarah Smith - Video Session
-              </p>
-            </div>
+            ) : (
+              <p className="text-sm text-gray-600">No upcoming sessions scheduled.</p>
+            )}
           </CardContent>
         </Card>
 
@@ -145,19 +240,21 @@ export default function PatientDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <p className="text-sm text-gray-600">
-                We discussed strategies for managing work-related stress and set goals for the upcoming week.
-              </p>
-              <Button 
-                variant="outline" 
-                className="text-[#146C94] hover:bg-[#146C94]/10"
-                onClick={() => console.log("View full summary")}
-              >
-                View Full Summary
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
+            {lastSession ? (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">{lastSession.summary}</p>
+                <Button 
+                  variant="outline" 
+                  className="text-[#146C94] hover:bg-[#146C94]/10"
+                  onClick={() => router.push(`/patient/sessions/${lastSession.id}`)}
+                >
+                  View Full Summary
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600">No past sessions available.</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -166,7 +263,7 @@ export default function PatientDashboard() {
       <Card className="bg-[#146C94]/5 border-none">
         <CardContent className="pt-6">
           <blockquote className="space-y-2">
-            <p className="text-lg text-[#146C94]">&quot;{quote.text}&quot;</p>
+            <p className="text-lg text-[#146C94]">"{quote.text}"</p>
             <footer className="text-sm text-[#146C94]/70">
               - {quote.author}
             </footer>

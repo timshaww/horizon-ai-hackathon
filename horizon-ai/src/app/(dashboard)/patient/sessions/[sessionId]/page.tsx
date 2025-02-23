@@ -19,66 +19,112 @@ import {
   Bot,
   Send,
 } from "lucide-react"
+import { getFirestore, doc, getDoc } from "firebase/firestore"
+import { auth } from "@/app/utils/firebase/config"
 
-
-// Sample data - In a real app, this would come from an API
-const journalEntry = {
-  id: 1,
-  dateTime: "2025-02-20T15:30:00",
-  therapist: "Dr. Sarah Smith",
-  summary: "Today's session focused on developing coping strategies for work-related stress. We identified specific triggers and created an action plan for managing overwhelming situations.",
-  detailedNotes: `During our session, we delved deep into the sources of work-related stress. Several key patterns emerged:
-
-1. Difficulty setting boundaries with colleagues
-2. Tendency to take on too many responsibilities
-3. Perfectionistic tendencies leading to burnout
-
-We explored these patterns using cognitive behavioral techniques and developed specific strategies for each challenge.`,
-  keyPoints: [
-    "Identified workplace stressors",
-    "Developed breathing techniques for immediate stress relief",
-    "Created a boundary-setting strategy for work-life balance"
-  ],
-  insights: [
-    "Connection between perfectionism and anxiety",
-    "Impact of childhood experiences on work habits",
-    "Role of self-compassion in stress management"
-  ],
-  mood: "Hopeful",
-  progress: "Good",
-  goals: [
-    "Practice deep breathing twice daily",
-    "Set work boundaries by limiting after-hours emails",
-    "Schedule regular breaks during workday"
-  ],
-  warnings: [
-    "Pay attention to early signs of burnout",
-    "Notice when perfectionism is becoming harmful"
-  ]
+// Define a TypeScript interface for our session document
+interface Session {
+  id: string;
+  sessionDate: Date;
+  therapist: string; // This will be updated to "Dr. {last_name}" after fetching therapist details
+  therapistId: string;
+  summary: string;
+  detailedNotes: string;
+  keyPoints: string[];
+  insights: string[];
+  mood: string;
+  progress: string; // "Upcoming" or "Completed"
+  goals: string[];
+  warnings: string[];
+  transcript: string;
+  journalingPrompt: string;
+  journalingResponse: string;
+  patientId: string;
+  status: string;
 }
 
 export default function SessionDetailsPage() {
   const router = useRouter()
-  const params = useParams()
-  const { promptId } = params
-
+  const { sessionId } = useParams() as { sessionId: string }
+  const [sessionData, setSessionData] = useState<Session | null>(null)
+  const [loading, setLoading] = useState(true)
+  
   // Chat state
-  const [messages, setMessages] = useState<{ id: number; type: string; content: string; timestamp: Date }[]>([])
+  const [messages, setMessages] = useState<
+    { id: number; type: string; content: string; timestamp: Date }[]
+  >([])
   const [newMessage, setNewMessage] = useState("")
   const [isTyping, setIsTyping] = useState(false)
-  const chatEndRef = useRef(null)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+
+  // Fetch session details and update therapist name from Firestore
+  useEffect(() => {
+    const fetchSessionDetails = async () => {
+      if (!sessionId) {
+        setLoading(false)
+        return
+      }
+      try {
+        const db = getFirestore()
+        const sessionRef = doc(db, "sessions", sessionId)
+        const sessionSnap = await getDoc(sessionRef)
+        if (sessionSnap.exists()) {
+          const data = sessionSnap.data()
+          // Build our session object (assume sessionDate is stored as a Firestore Timestamp)
+          let fetchedSession: Session = {
+            id: sessionSnap.id,
+            sessionDate: data.sessionDate.toDate(),
+            therapist: data.therapist, // temporary value
+            therapistId: data.therapistId,
+            summary: data.summary,
+            detailedNotes: data.detailedNotes || "",
+            keyPoints: data.keyPoints || [],
+            insights: data.insights || [],
+            mood: data.mood || "",
+            progress: data.progress || "",
+            goals: data.goals || [],
+            warnings: data.warnings || [],
+            transcript: data.transcript || "",
+            journalingPrompt: data.journalingPrompt || "",
+            journalingResponse: data.journalingResponse || "",
+            patientId: data.patientId,
+            status: data.status || "",
+          }
+
+          // Fetch therapist's details using therapistId to update the display name.
+          if (fetchedSession.therapistId) {
+            const therapistRef = doc(db, "users", fetchedSession.therapistId)
+            const therapistSnap = await getDoc(therapistRef)
+            if (therapistSnap.exists()) {
+              const therapistData = therapistSnap.data()
+              // Update the therapist field to "Dr. {last_name}"
+              fetchedSession.therapist = `Dr. ${therapistData.last_name}`
+            }
+          }
+          setSessionData(fetchedSession)
+        } else {
+          console.error("Session not found.")
+        }
+      } catch (error) {
+        console.error("Error fetching session details:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSessionDetails()
+  }, [sessionId])
 
   const handleSendMessage = async () => {
     if (!newMessage.trim()) return
 
-    // Add user message
     const userMessage = {
       id: messages.length + 1,
-      type: 'user',
+      type: "user",
       content: newMessage,
-      timestamp: new Date()
+      timestamp: new Date(),
     }
-    setMessages(prev => [...prev, userMessage])
+    setMessages((prev) => [...prev, userMessage])
     setNewMessage("")
     setIsTyping(true)
 
@@ -87,23 +133,28 @@ export default function SessionDetailsPage() {
       setIsTyping(false)
       const botMessage = {
         id: messages.length + 2,
-        type: 'bot',
-        content: "I understand you'd like to know more about this session. What specific aspect would you like me to explain further?",
-        timestamp: new Date()
+        type: "bot",
+        content:
+          "I understand you'd like to know more about this session. What specific aspect would you like me to explain further?",
+        timestamp: new Date(),
       }
-      setMessages(prev => [...prev, botMessage])
+      setMessages((prev) => [...prev, botMessage])
     }, 1500)
+  }
+
+  if (loading) {
+    return <div className="p-6 max-w-4xl mx-auto">Loading session details...</div>
+  }
+
+  if (!sessionData) {
+    return <div className="p-6 max-w-4xl mx-auto">Session not found or you are not authorized to view it.</div>
   }
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
       {/* Navigation Header */}
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          className="mb-4"
-          onClick={() => router.back()}
-        >
+        <Button variant="ghost" className="mb-4" onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Session Review
         </Button>
@@ -118,16 +169,16 @@ export default function SessionDetailsPage() {
             <div className="flex items-center gap-4 text-sm text-gray-600">
               <div className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
-                <span>{new Date(journalEntry.dateTime).toLocaleDateString()}</span>
+                <span>{sessionData.sessionDate.toLocaleDateString()}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />
-                <span>{new Date(journalEntry.dateTime).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}</span>
+                <span>{sessionData.sessionDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
               </div>
-              <span>with {journalEntry.therapist}</span>
+              <span>with {sessionData.therapist}</span>
             </div>
             <Badge variant="outline" className="text-[#146C94]">
-              {journalEntry.progress}
+              {sessionData.progress}
             </Badge>
           </div>
         </CardHeader>
@@ -147,7 +198,9 @@ export default function SessionDetailsPage() {
             </CardHeader>
             <CardContent>
               <div className="prose max-w-none">
-                <p className="text-gray-600 whitespace-pre-line">{journalEntry.detailedNotes}</p>
+                <p className="text-gray-600 whitespace-pre-line">
+                  {sessionData.summary}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -162,7 +215,7 @@ export default function SessionDetailsPage() {
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
-                {journalEntry.insights.map((insight, index) => (
+                {sessionData.insights.map((insight, index) => (
                   <li key={index} className="flex items-center gap-2 text-gray-600">
                     <ChevronRight className="h-4 w-4 text-[#146C94]" />
                     {insight}
@@ -184,7 +237,7 @@ export default function SessionDetailsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">{journalEntry.mood}</p>
+              <p className="text-gray-600">{sessionData.mood}</p>
             </CardContent>
           </Card>
 
@@ -198,7 +251,7 @@ export default function SessionDetailsPage() {
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
-                {journalEntry.goals.map((goal, index) => (
+                {sessionData.goals.map((goal, index) => (
                   <li key={index} className="text-gray-600 flex items-start gap-2">
                     <span className="text-[#146C94]">•</span>
                     {goal}
@@ -218,7 +271,7 @@ export default function SessionDetailsPage() {
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
-                {journalEntry.warnings.map((warning, index) => (
+                {sessionData.warnings.map((warning, index) => (
                   <li key={index} className="text-gray-600 flex items-start gap-2">
                     <span className="text-[#146C94]">•</span>
                     {warning}
@@ -246,7 +299,7 @@ export default function SessionDetailsPage() {
                 <div className="text-center py-4">
                   <Bot className="h-8 w-8 text-[#146C94]/40 mx-auto mb-2" />
                   <p className="text-gray-500 text-sm">
-                    Ask me anything about this session&apos;s insights and recommendations.
+                    Ask me anything about this session's insights and recommendations.
                   </p>
                 </div>
               ) : (
@@ -254,13 +307,13 @@ export default function SessionDetailsPage() {
                   {messages.map((message) => (
                     <div
                       key={message.id}
-                      className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                      className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}
                     >
                       <div
                         className={`rounded-lg p-2 max-w-[80%] ${
-                          message.type === 'user'
-                            ? 'bg-[#146C94] text-white'
-                            : 'bg-gray-100 text-gray-800'
+                          message.type === "user"
+                            ? "bg-[#146C94] text-white"
+                            : "bg-gray-100 text-gray-800"
                         }`}
                       >
                         <p className="text-sm">{message.content}</p>
@@ -290,7 +343,7 @@ export default function SessionDetailsPage() {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     handleSendMessage()
                   }
                 }}
