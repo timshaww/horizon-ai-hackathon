@@ -8,25 +8,23 @@ import { Badge } from "@/components/ui/badge"
 import {
   Calendar,
   Clock,
-  Heart,
-  Target,
   ChevronRight,
   ArrowLeft,
   MessageSquare,
   Lightbulb,
+  Heart,
+  Target,
   AlertCircle,
 } from "lucide-react"
 import { getFirestore, doc, getDoc } from "firebase/firestore"
 import { auth } from "@/app/utils/firebase/config"
 
-// Define interface for a session document
 interface Session {
   id: string;
   sessionDate: Date;
-  therapist: string;
   therapistId: string;
   summary: string;
-  detailedNotes: string;
+  detailedNotes?: string;
   keyPoints: string[];
   insights: string[];
   mood: string;
@@ -40,14 +38,13 @@ interface Session {
   status: string;
 }
 
-export default function TherapistSessionDetailsPage() {
+export default function TherapistSessionDetailPage() {
   const router = useRouter()
   const { sessionId } = useParams() as { sessionId: string }
   const [sessionData, setSessionData] = useState<Session | null>(null)
   const [patientName, setPatientName] = useState<string>("")
   const [loading, setLoading] = useState(true)
 
-  // Fetch session details and patient name from Firestore
   useEffect(() => {
     const fetchSessionDetails = async () => {
       if (!sessionId) {
@@ -68,7 +65,6 @@ export default function TherapistSessionDetailsPage() {
           const fetchedSession: Session = {
             id: sessionSnap.id,
             sessionDate: data.sessionDate.toDate(),
-            therapist: data.therapist,
             therapistId: data.therapistId,
             summary: data.summary,
             detailedNotes: data.detailedNotes || "",
@@ -85,16 +81,11 @@ export default function TherapistSessionDetailsPage() {
             status: data.status || "",
           }
 
-          // Fetch patient name based on the patientId in the fetched session
           const patientRef = doc(db, "users", fetchedSession.patientId)
           const patientSnap = await getDoc(patientRef)
           if (patientSnap.exists()) {
             const patientData = patientSnap.data()
             setPatientName(`${patientData.first_name} ${patientData.last_name}`)
-            // Optionally, override sessionData.therapist to show current user's display name:
-            fetchedSession.therapist = currentUser.displayName || "You"
-          } else {
-            setPatientName("Unknown Patient")
           }
 
           setSessionData(fetchedSession)
@@ -121,21 +112,15 @@ export default function TherapistSessionDetailsPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      {/* Navigation Header */}
       <div className="mb-6">
-        <Button 
-          variant="ghost" 
-          className="mb-4" 
-          onClick={() => router.push(`/therapist/patients`)}
-        >
+        <Button variant="ghost" className="mb-4" onClick={() => router.push(`/therapist/patients/sessions/${sessionData.patientId}`)}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Sessions
+          Back to Patient Sessions
         </Button>
         <h1 className="text-3xl font-bold text-[#146C94]">Session Details</h1>
-        <p className="text-gray-600 mt-1">Complete summary and insights from your session with {patientName}</p>
+        <p className="text-gray-600 mt-1">Complete summary and insights from the session with {patientName}</p>
       </div>
 
-      {/* Session Info Card */}
       <Card className="mb-6">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -151,15 +136,13 @@ export default function TherapistSessionDetailsPage() {
               <span>with {patientName}</span>
             </div>
             <Badge variant="outline" className="text-[#146C94]">
-              {sessionData.progress}
+              {sessionData.status}
             </Badge>
           </div>
         </CardHeader>
       </Card>
 
-      {/* Main Content Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Left Column - Summary and Notes */}
         <div className="md:col-span-2 space-y-6">
           <Card>
             <CardHeader>
@@ -193,7 +176,6 @@ export default function TherapistSessionDetailsPage() {
           </Card>
         </div>
 
-        {/* Right Column - Progress and Actions */}
         <div className="space-y-6">
           <Card>
             <CardHeader>

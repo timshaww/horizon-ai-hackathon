@@ -17,7 +17,17 @@ import {
 } from "lucide-react"
 import { signOut } from "firebase/auth"
 import { auth } from "@/app/utils/firebase/config"
-import { getFirestore, doc, getDoc } from "firebase/firestore"
+import { 
+  getFirestore, 
+  doc, 
+  getDoc,
+  collection,
+  query,
+  getDocs,
+  where,
+  orderBy,
+  limit
+} from "firebase/firestore"
 import { onAuthStateChanged } from "firebase/auth"
 
 import { Badge } from "@/components/ui/badge"
@@ -32,7 +42,16 @@ import {
   SidebarMenuButton,
 } from "@/components/ui/sidebar"
 
-const mainNavItems = [
+// Define interface for navigation items
+interface NavItem {
+  title: string;
+  url: string;
+  icon: React.ComponentType<any>;
+  badge?: string;
+  className?: string;
+}
+
+const mainNavItems: NavItem[] = [
   { 
     title: "Dashboard",
     url: "/therapist",
@@ -41,14 +60,12 @@ const mainNavItems = [
   { 
     title: "Schedule",
     url: "/therapist/schedule",
-    icon: Calendar,
-    badge: "5"
+    icon: Calendar
   },
   { 
     title: "Patients",
     url: "/therapist/patients",
-    icon: Users,
-    badge: "12"
+    icon: Users
   },
   { 
     title: "Notes",
@@ -59,11 +76,11 @@ const mainNavItems = [
     title: "Messages",
     url: "/therapist/messages",
     icon: MessageSquare,
-    badge: "3"
+    badge: "3" // Could be made dynamic later
   }
 ]
 
-const settingsNavItems = [
+const settingsNavItems: NavItem[] = [
   { 
     title: "Settings",
     url: "/therapist/settings",
@@ -77,15 +94,27 @@ const settingsNavItems = [
   }
 ]
 
+interface UserProfile {
+  first_name: string;
+  last_name: string;
+  role: string;
+}
+
+interface Session {
+  id: string;
+  sessionDate: Date;
+  therapistId: string;
+  patientId: string;
+  patientName?: string;
+  status: string;
+}
+
 export function TherapistSidebar() {
   const pathname = usePathname()
-  interface UserProfile {
-    first_name: string;
-    last_name: string;
-    role: string;
-  }
-  
   const [userProfile, setUserProfile] = React.useState<UserProfile | null>(null)
+  const [patientCount, setPatientCount] = React.useState<number>(0)
+  const [scheduleCount, setScheduleCount] = React.useState<number>(0) // Added for total sessions
+  const [nextSession, setNextSession] = React.useState<Session | null>(null)
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -93,51 +122,168 @@ export function TherapistSidebar() {
         const db = getFirestore()
         const userDocRef = doc(db, "users", user.uid)
         const userDocSnap = await getDoc(userDocRef)
+        
         if (userDocSnap.exists()) {
           setUserProfile(userDocSnap.data() as UserProfile)
         } else {
           setUserProfile(null)
         }
+
+        // Fetch counts and next session
+        await fetchPatientCount(user.uid, db)
+        await fetchScheduleCount(user.uid, db) // Added to match SchedulePage
+        await fetchNextSession(user.uid, db)
       } else {
         setUserProfile(null)
+        setPatientCount(0)
+        setScheduleCount(0)
+        setNextSession(null)
       }
     })
 
-    return () => {
-      unsubscribe()
-    }
+    return () => unsubscribe()
   }, [])
+
+  // Function to fetch patient count
+  const fetchPatientCount = async (therapistId: string, db: any) => {
+    try {
+      const sessionsRef = collection(db, "sessions")
+      const q = query(
+        sessionsRef,
+        where("therapistId", "==", therapistId)
+      )
+      const querySnapshot = await getDocs(q)
+      
+      const patientIds = new Set<string>()
+      querySnapshot.forEach(doc => {
+        patientIds.add(doc.data().patientId)
+      })
+
+      setPatientCount(patientIds.size)
+    } catch (error) {
+      console.error("Error fetching patient count:", error)
+      setPatientCount(0)
+    }
+  }
+
+  // Function to fetch total schedule count (matches SchedulePage)
+  const fetchScheduleCount = async (therapistId: string, db: any) => {
+    try {
+      const sessionsRef = collection(db, "sessions")
+      const q = query(
+        sessionsRef,
+        where("therapistId", "==", therapistId)
+      )
+      const querySnapshot = await getDocs(q)
+      setScheduleCount(querySnapshot.size)
+    } catch (error) {
+      console.error("Error fetching schedule count:", error)
+      setScheduleCount(0)
+    }
+  }
+
+  // Function to fetch next session
+  const fetchNextSession = async (therapistId: string, db: any) => {
+    try {
+      const now = new Date()
+      const sessionsRef = collection(db, "sessions")
+      const q = query(
+        sessionsRef,
+        where("therapistId", "==", therapistId),
+        where("sessionDate", ">=", now),
+        orderBy("sessionDate", "asc"),
+        limit(1)
+      )
+      const querySnapshot = await getDocs(q)
+
+      if (!querySnapshot.empty) {
+        const docSnap = querySnapshot.docs[0]
+        const data = docSnap.data()
+        let session: Session = {
+          id: docSnap.id,
+          sessionDate: data.sessionDate.toDate(),
+          therapistId: data.therapistId,
+          patientId: data.patientId,
+          status: data.status || ""
+        }
+
+        // Fetch patient name
+        const patientRef = doc(db, "users", session.patientId)
+        const patientSnap = await getDoc(patientRef)
+        if (patientSnap.exists()) {
+          const patientData = patientSnap.data()
+          session.patientName = `${patientData.first_name} ${patientData.last_name}`
+        }
+
+        setNextSession(session)
+      } else {
+        setNextSession(null)
+      }
+    } catch (error) {
+      console.error("Error fetching next session:", error)
+      setNextSession(null)
+    }
+  }
 
   const handleLogout = async () => {
     try {
-      // First clear the session cookie
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-      })
-      
-      // Then sign out from Firebase
+      await fetch('/api/auth/logout', { method: 'POST' })
       await signOut(auth)
-      
-      // Finally redirect
       window.location.href = '/signin'
     } catch (error) {
       console.error('Error during logout:', error)
     }
   }
 
-  // Compose full name if userProfile is available
   const fullName = userProfile
     ? `${userProfile.first_name} ${userProfile.last_name}`
     : "Loading..."
 
-  // Capitalize the role if available
   const userRole = userProfile && userProfile.role
     ? userProfile.role.charAt(0).toUpperCase() + userProfile.role.slice(1)
     : "Therapist"
 
+  // Format session date
+  const formatSessionDate = (date: Date): string => {
+    const now = new Date()
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    
+    if (
+      date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth() &&
+      date.getDate() === now.getDate()
+    ) {
+      return `Today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    } else if (
+      date.getFullYear() === tomorrow.getFullYear() &&
+      date.getMonth() === tomorrow.getMonth() &&
+      date.getDate() === tomorrow.getDate()
+    ) {
+      return `Tomorrow at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    }
+    
+    return `${date.toLocaleDateString()} at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+  }
+
+  // Update navigation items with dynamic badges
+  const updatedMainNavItems = mainNavItems.map(item => {
+    if (item.title === "Patients") {
+      return {
+        ...item,
+        badge: patientCount > 0 ? patientCount.toString() : undefined
+      }
+    }
+    if (item.title === "Schedule") {
+      return {
+        ...item,
+        badge: scheduleCount > 0 ? scheduleCount.toString() : undefined // Matches SchedulePage total
+      }
+    }
+    return item
+  })
+
   return (
     <Sidebar className="flex flex-col h-screen">
-      {/* Logo Section */}
       <SidebarHeader className="px-4 py-6 border-b">
         <Link href="/therapist" className="flex items-center gap-3">
           <Image 
@@ -151,7 +297,6 @@ export function TherapistSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="flex-1 flex flex-col">
-        {/* Notification Section */}
         <div className="px-4 py-4 border-b">
           <div className="rounded-lg bg-[#146C94]/5 p-4">
             <div className="flex items-center gap-3 text-[#146C94]">
@@ -159,16 +304,17 @@ export function TherapistSidebar() {
               <span className="text-sm font-medium">Next Session</span>
             </div>
             <p className="mt-2 text-sm text-[#146C94]/70">
-              In 15 minutes with Sarah Johnson
+              {nextSession
+                ? `${formatSessionDate(nextSession.sessionDate)} with ${nextSession.patientName || "a patient"}`
+                : "No upcoming sessions"}
             </p>
           </div>
         </div>
 
-        {/* Main Navigation Section */}
         <SidebarGroup className="flex-1 px-3 py-4">
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNavItems.map((item) => (
+              {updatedMainNavItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton 
                     asChild 
@@ -203,9 +349,7 @@ export function TherapistSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* User Profile and Settings Section */}
         <div className="mt-auto border-t">
-          {/* Profile Section */}
           <div className="p-4 border-b">
             <div className="flex items-center gap-3 rounded-lg hover:bg-[#146C94]/5 p-3 cursor-pointer transition-colors duration-200">
               <div className="h-10 w-10 rounded-full bg-[#146C94]/10 flex items-center justify-center">
@@ -222,7 +366,6 @@ export function TherapistSidebar() {
             </div>
           </div>
 
-          {/* Settings and Logout Section */}
           <div className="p-2">
             <SidebarMenu>
               {settingsNavItems.map((item) => (
