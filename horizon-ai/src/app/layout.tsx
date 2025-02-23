@@ -36,7 +36,6 @@ export const metadata: Metadata = {
     title: "TherapyAI - Your Mental Health Journey",
     description: "Experience personalized therapy support with AI-powered insights and progress tracking.",
   },
-  themeColor: "#146C94",
   manifest: "/manifest.json", // You'll need to create this for PWA support
 };
 

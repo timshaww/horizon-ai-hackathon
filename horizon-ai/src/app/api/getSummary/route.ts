@@ -1,4 +1,3 @@
-// app/api/gpt4/route.ts
 import { NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
 
@@ -8,6 +7,9 @@ const openai = new OpenAI({
 });
 
 export async function POST(request: Request) {
+
+    const SYSTEM_PROMPT = 'You are providing a summary of a therapy call between a counselor and a patient. You must summarize the conversation in a way that is concise and easy to understand. You must clearly define the areas that the patient said they were struggling with. You must give a brief overview of the advice that the counselor gave to the patient. You must only include advice that the counselor said. ';
+
     try {
         const { prompt } = await request.json(); // Get the prompt from the incoming request body
 
@@ -17,12 +19,17 @@ export async function POST(request: Request) {
             model: 'gpt-4', // GPT-4 model
             messages: [
                 {
+                    role: 'system',
+                    content: SYSTEM_PROMPT,
+                },
+                {
                     role: 'user',
-                    content: prompt,
+                    content: `This is the transcribed therapy appointment: "${prompt}"`,
                 },
             ],
         });
 
+        console.log('🤬🤬🤬🤬🤬🤬🤬:', response.choices[0].message.content);
         // Return the response from OpenAI API
         return NextResponse.json({
             success: true,

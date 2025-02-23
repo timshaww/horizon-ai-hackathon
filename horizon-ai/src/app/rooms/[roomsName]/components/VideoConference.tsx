@@ -114,10 +114,10 @@ function VideoConferenceComponent(props: {
     }), []);
   
     const handleOnLeave = React.useCallback(async () => {
+      router.push('/');
       setTimeout(async () => {
 
-        console.log('🤬🤬🤬🤬🤬🤬🤬Recording stopped');
-        const response = fetch('/api/getTranscription', {
+        const transcriptionResponse = fetch('/api/getTranscription', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -125,10 +125,17 @@ function VideoConferenceComponent(props: {
           body: JSON.stringify({ s3Key: 'TherapyRecording.mp4' }),
         });
   
-        const data = (await response).text;
-        console.log(data);
-        router.push('/');
+        const transcriptionText = (await transcriptionResponse).text;
+        
+        const summaryResponse = fetch('/api/getSummary', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ prompt: transcriptionText }),
+        });
       }, 10000);
+
     }, []);
     
     const handleError = React.useCallback((error: Error) => {
