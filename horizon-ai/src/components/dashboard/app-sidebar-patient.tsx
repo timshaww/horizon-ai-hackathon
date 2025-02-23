@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import Image from 'next/image';
+import Image from 'next/image'
 import { 
   Home,
   Calendar,
@@ -16,6 +16,17 @@ import {
 } from "lucide-react"
 import { signOut } from "firebase/auth"
 import { auth } from "@/app/utils/firebase/config"
+import { 
+  getFirestore, 
+  doc, 
+  getDoc, 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  getDocs 
+} from "firebase/firestore"
+import { onAuthStateChanged } from "firebase/auth"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -39,7 +50,6 @@ const mainNavItems = [
     title: "Schedule",
     url: "/patient/schedule",
     icon: Calendar,
-    badge: "2"
   },
   { 
     title: "Sessions",
@@ -67,29 +77,165 @@ const settingsNavItems = [
   }
 ]
 
+interface UserProfile {
+  first_name: string;
+  last_name: string;
+  role: string;
+}
+
+interface Session {
+  id: string;
+  sessionDate: Date;
+  therapistId: string;
+  summary: string;
+  keyPoints: string[];
+  insights: string[];
+  mood: string;
+  progress: string;
+  goals: string[];
+  warnings: string[];
+  transcript: string;
+  journalingPrompt: string;
+  journalingResponse: string;
+  patientId: string;
+  status: string;
+  therapistName?: string;
+}
+
 export function PatientSidebar() {
   const pathname = usePathname()
-  
+  const [userProfile, setUserProfile] = React.useState<UserProfile | null>(null)
+  const [upcomingSession, setUpcomingSession] = React.useState<Session | null>(null)
+  const [upcomingCount, setUpcomingCount] = React.useState<number>(0)
+
+  // Listen for auth state changes to get the user's profile
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const db = getFirestore()
+        const userDocRef = doc(db, "users", user.uid)
+        const userDocSnap = await getDoc(userDocRef)
+        if (userDocSnap.exists()) {
+          const data = userDocSnap.data() as UserProfile
+          setUserProfile(data)
+        } else {
+          setUserProfile(null)
+        }
+
+        // Fetch upcoming sessions count
+        await fetchUpcomingSessions(user.uid, db)
+      } else {
+        setUserProfile(null)
+        setUpcomingCount(0)
+      }
+    })
+    return () => unsubscribe()
+  }, [])
+
+  // Fetch upcoming sessions and count
+  const fetchUpcomingSessions = async (uid: string, db: any) => {
+    try {
+      const now = new Date()
+      const sessionsRef = collection(db, "sessions")
+      const q = query(
+        sessionsRef,
+        where("patientId", "==", uid),
+        where("sessionDate", ">=", now)
+      )
+      const querySnapshot = await getDocs(q)
+      
+      // Set upcoming session (first one)
+      if (!querySnapshot.empty) {
+        const docSnap = querySnapshot.docs[0]
+        const data = docSnap.data()
+        let session: Session = {
+          id: docSnap.id,
+          sessionDate: data.sessionDate.toDate(),
+          therapistId: data.therapistId,
+          summary: data.summary,
+          keyPoints: data.keyPoints || [],
+          insights: data.insights || [],
+          mood: data.mood || "",
+          progress: data.progress || "",
+          goals: data.goals || [],
+          warnings: data.warnings || [],
+          transcript: data.transcript || "",
+          journalingPrompt: data.journalingPrompt || "",
+          journalingResponse: data.journalingResponse || "",
+          patientId: data.patientId,
+          status: data.status || "",
+        }
+        const therapistRef = doc(db, "users", session.therapistId)
+        const therapistSnap = await getDoc(therapistRef)
+        if (therapistSnap.exists()) {
+          const therapistData = therapistSnap.data()
+          session.therapistName = `Dr. ${therapistData.last_name}`
+        }
+        setUpcomingSession(session)
+      } else {
+        setUpcomingSession(null)
+      }
+
+      // Set count of upcoming sessions
+      setUpcomingCount(querySnapshot.size)
+    } catch (error) {
+      console.error("Error fetching upcoming sessions:", error)
+      setUpcomingCount(0)
+    }
+  }
+
   const handleLogout = async () => {
     try {
-      // First clear the session cookie
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-      })
-      
-      // Then sign out from Firebase
+      await fetch('/api/auth/logout', { method: 'POST' })
       await signOut(auth)
-      
-      // Finally redirect
       window.location.href = '/signin'
     } catch (error) {
       console.error('Error during logout:', error)
     }
   }
 
+  const fullName = userProfile
+    ? `${userProfile.first_name} ${userProfile.last_name}`
+    : "Loading..."
+
+  const userRole = userProfile && userProfile.role
+    ? userProfile.role.charAt(0).toUpperCase() + userProfile.role.slice(1)
+    : ""
+
+  const formatSessionDate = (date: Date): string => {
+    const now = new Date()
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    
+    if (
+      date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth() &&
+      date.getDate() === now.getDate()
+    ) {
+      return `Today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    } else if (
+      date.getFullYear() === tomorrow.getFullYear() &&
+      date.getMonth() === tomorrow.getMonth() &&
+      date.getDate() === tomorrow.getDate()
+    ) {
+      return `Tomorrow at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    }
+    
+    return `${date.toLocaleDateString()} at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+  }
+
+  // Update the Schedule nav item with dynamic badge
+  const updatedMainNavItems = mainNavItems.map(item => {
+    if (item.title === "Schedule") {
+      return {
+        ...item,
+        badge: upcomingCount > 0 ? upcomingCount.toString() : undefined
+      }
+    }
+    return item
+  })
+
   return (
     <Sidebar className="flex flex-col h-screen">
-      {/* Logo Section */}
       <SidebarHeader className="px-4 py-6 border-b">
         <Link href="/patient" className="flex items-center gap-3">
           <Image 
@@ -103,7 +249,6 @@ export function PatientSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="flex-1 flex flex-col">
-        {/* Notification Section */}
         <div className="px-4 py-4 border-b">
           <div className="rounded-lg bg-[#146C94]/5 p-4">
             <div className="flex items-center gap-3 text-[#146C94]">
@@ -111,16 +256,17 @@ export function PatientSidebar() {
               <span className="text-sm font-medium">Upcoming Session</span>
             </div>
             <p className="mt-2 text-sm text-[#146C94]/70">
-              Today at 3:00 PM with Dr. Smith
+              {upcomingSession
+                ? `${formatSessionDate(upcomingSession.sessionDate)} with ${upcomingSession.therapistName || "Your Therapist"}`
+                : "No upcoming sessions"}
             </p>
           </div>
         </div>
 
-        {/* Main Navigation Section */}
         <SidebarGroup className="flex-1 px-3 py-4">
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNavItems.map((item) => (
+              {updatedMainNavItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton 
                     asChild 
@@ -155,53 +301,54 @@ export function PatientSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* User Profile and Settings Section */}
         <div className="mt-auto border-t">
-          {/* Profile Section */}
           <div className="p-4 border-b">
             <div className="flex items-center gap-3 rounded-lg hover:bg-[#146C94]/5 p-3 cursor-pointer transition-colors duration-200">
               <div className="h-10 w-10 rounded-full bg-[#146C94]/10 flex items-center justify-center">
                 <UserCircle className="h-6 w-6 text-[#146C94]" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-medium text-[#146C94]">John Doe</span>
-                <span className="text-xs text-[#146C94]/70">Patient</span>
+                <span className="text-sm font-medium text-[#146C94]">
+                  {fullName}
+                </span>
+                <span className="text-xs text-[#146C94]/70">
+                  {userRole || "Patient"}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Settings and Logout Section */}
           <div className="p-2">
             <SidebarMenu>
-            {settingsNavItems.map((item) => (
-              <SidebarMenuItem key={item.url}>
-                <SidebarMenuButton 
-                  asChild 
-                  isActive={pathname === item.url}
-                  className={`
-                    w-full p-3 rounded-lg transition-colors duration-200
-                    ${item.className || (pathname === item.url 
-                      ? 'bg-[#146C94] text-white' 
-                      : 'text-[#146C94] hover:bg-[#146C94]/10')}
-                  `}
-                >
-                  {item.url === '/logout' ? (
-                    <button 
-                      onClick={handleLogout}
-                      className="flex items-center gap-3 w-full"
-                    >
-                      <item.icon className="h-5 w-5" />
-                      <span className="font-medium">{item.title}</span>
-                    </button>
-                  ) : (
-                    <Link href={item.url} className="flex items-center gap-3">
-                      <item.icon className="h-5 w-5" />
-                      <span className="font-medium">{item.title}</span>
-                    </Link>
-                  )}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+              {settingsNavItems.map((item) => (
+                <SidebarMenuItem key={item.url}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={pathname === item.url}
+                    className={`
+                      w-full p-3 rounded-lg transition-colors duration-200
+                      ${item.className || (pathname === item.url 
+                        ? 'bg-[#146C94] text-white' 
+                        : 'text-[#146C94] hover:bg-[#146C94]/10')}
+                    `}
+                  >
+                    {item.url === '/logout' ? (
+                      <button 
+                        onClick={handleLogout}
+                        className="flex items-center gap-3 w-full"
+                      >
+                        <item.icon className="h-5 w-5" />
+                        <span className="font-medium">{item.title}</span>
+                      </button>
+                    ) : (
+                      <Link href={item.url} className="flex items-center gap-3">
+                        <item.icon className="h-5 w-5" />
+                        <span className="font-medium">{item.title}</span>
+                      </Link>
+                    )}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </div>
         </div>

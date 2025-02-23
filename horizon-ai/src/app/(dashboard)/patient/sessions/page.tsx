@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,52 +15,115 @@ import { Badge } from "@/components/ui/badge"
 import {
   Calendar,
   Clock,
-  Brain,
   Target,
   ChevronRight,
   PenLine
 } from "lucide-react"
+import { getFirestore, collection, query, where, getDocs, doc, getDoc } from "firebase/firestore"
+import { auth } from "@/app/utils/firebase/config"
 
-// Sample sessions data
-const sessions = [
-  {
-    id: 1,
-    dateTime: "2025-02-20T15:30:00",
-    therapist: "Dr. Sarah Smith",
-    summary: "Today's session focused on developing coping strategies for work-related stress. We identified specific triggers and created an action plan for managing overwhelming situations.",
-    keyPoints: [
-      "Identified workplace stressors",
-      "Developed breathing techniques for immediate stress relief",
-      "Created a boundary-setting strategy for work-life balance"
-    ],
-    mood: "Hopeful",
-    progress: "Good",
-    goals: [
-      "Practice deep breathing twice daily",
-      "Set work boundaries by limiting after-hours emails"
-    ]
-  },
-  {
-    id: 2,
-    dateTime: "2025-02-13T15:30:00",
-    therapist: "Dr. Sarah Smith",
-    summary: "We explored childhood memories and their impact on current relationship patterns. Several breakthrough moments in understanding recurring behavioral patterns.",
-    keyPoints: [
-      "Connected past experiences to present behaviors",
-      "Identified communication patterns in relationships",
-      "Discussed healthy attachment styles"
-    ],
-    mood: "Reflective",
-    progress: "Breakthrough",
-    goals: [
-      "Journal about childhood memories",
-      "Practice new communication techniques"
-    ]
-  }
-]
+// Define a proper interface for a session document
+export interface Session {
+  id: string;
+  sessionDate: Date;       // Full date and time of the session
+  therapist: string;       // Therapist's display name (to be fetched from users collection)
+  therapistId: string;     // Therapist's UID (matches a document in users)
+  summary: string;
+  detailedNotes?: string;  // Optional detailed notes
+  keyPoints: string[];
+  insights: string[];
+  mood: string;
+  progress: string;        // E.g., "Upcoming", "Completed", etc.
+  goals: string[];
+  warnings: string[];
+  transcript: string;
+  journalingPrompt: string;
+  journalingResponse: string;
+  patientId: string;
+  status: string;
+}
 
 export default function SessionsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("recent")
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // Fetch sessions from Firestore for the logged-in patient and then update therapist name based on therapistId
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const currentUser = auth.currentUser
+        if (!currentUser) {
+          setLoading(false)
+          return
+        }
+        const db = getFirestore()
+        const sessionsRef = collection(db, "sessions")
+        // Filter sessions where the patientId equals the logged-in user's uid
+        const q = query(sessionsRef, where("patientId", "==", currentUser.uid))
+        const querySnapshot = await getDocs(q)
+        let fetchedSessions: Session[] = querySnapshot.docs.map(doc => {
+          const data = doc.data()
+          return {
+            id: doc.id,
+            sessionDate: data.sessionDate.toDate(), // Convert Firestore Timestamp to JavaScript Date
+            therapist: data.therapist, // initial value (may be overwritten)
+            therapistId: data.therapistId,
+            summary: data.summary,
+            detailedNotes: data.detailedNotes || "",
+            keyPoints: data.keyPoints || [],
+            insights: data.insights || [],
+            mood: data.mood || "",
+            progress: data.progress || "",
+            goals: data.goals || [],
+            warnings: data.warnings || [],
+            transcript: data.transcript || "",
+            journalingPrompt: data.journalingPrompt || "",
+            journalingResponse: data.journalingResponse || "",
+            patientId: data.patientId,
+            status: data.status || "",
+          }
+        })
+
+        // For each session, fetch the therapist's user document and update the displayed therapist name to "Dr. {last_name}"
+        const sessionsWithTherapistName = await Promise.all(
+          fetchedSessions.map(async (session) => {
+            if (session.therapistId) {
+              const therapistRef = doc(db, "users", session.therapistId)
+              const therapistSnap = await getDoc(therapistRef)
+              if (therapistSnap.exists()) {
+                const therapistData = therapistSnap.data()
+                // Update the therapist field to include the "Dr." prefix and the last name
+                return {
+                  ...session,
+                  therapist: `Dr. ${therapistData.last_name}`
+                }
+              }
+            }
+            return session
+          })
+        )
+
+        // Sort sessions so the latest session is first
+        sessionsWithTherapistName.sort((a, b) => b.sessionDate.getTime() - a.sessionDate.getTime())
+        setSessions(sessionsWithTherapistName)
+      } catch (error) {
+        console.error("Error fetching sessions:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSessions()
+  }, [])
+
+  if (loading) {
+    return <div className="p-6 max-w-6xl mx-auto">Loading sessions...</div>
+  }
+
+  if (sessions.length === 0) {
+    return <div className="p-6 max-w-6xl mx-auto">No sessions found.</div>
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -87,29 +150,27 @@ export default function SessionsPage() {
               <CardTitle className="text-lg font-semibold">Latest Session Summary</CardTitle>
               <Badge variant="outline" className="text-[#146C94]">AI Generated</Badge>
             </div>
-              <div className="flex items-center gap-4 text-sm text-gray-600">
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  <span>{new Date(sessions[0].dateTime).toLocaleDateString()}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  <span>{new Date(sessions[0].dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-                <span>with {sessions[0].therapist}</span>
+            <div className="flex items-center gap-4 text-sm text-gray-600">
+              <div className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                <span>{sessions[0].sessionDate.toLocaleDateString()}</span>
               </div>
+              <div className="flex items-center gap-1">
+                <Clock className="h-4 w-4" />
+                <span>{sessions[0].sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <span>with {sessions[0].therapist}</span>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {/* Session Info */}
-
-              {/* Summary */}
+              {/* Session Overview */}
               <div className="mb-4">
-                <h3 className="font-medium text-gray-900 mb-">Session Overview</h3>
+                <h3 className="font-medium text-gray-900">Session Overview</h3>
                 <p className="text-gray-600">{sessions[0].summary}</p>
               </div>
 
-              {/* Key Points Preview */}
+              {/* Key Insights Preview */}
               <div>
                 <h3 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
                   Key Insights
@@ -127,8 +188,9 @@ export default function SessionsPage() {
           </CardContent>
         </Card>
       </Link>
-        {/* Previous Sessions */}
-        <Card>
+
+      {/* Previous Sessions */}
+      <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-semibold">Previous Sessions</CardTitle>
@@ -155,7 +217,7 @@ export default function SessionsPage() {
             {sessions.slice(1).map((entry) => (
               <Link 
                 key={entry.id} 
-                href={`/sessions/${entry.id}`}
+                href={`./sessions/${entry.id}`}
                 className="block"
               >
                 <div className="p-4 rounded-lg border hover:shadow-md transition-shadow">
@@ -163,11 +225,11 @@ export default function SessionsPage() {
                     <div className="flex items-center gap-4 text-sm text-gray-600">
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
-                        <span>{new Date(entry.dateTime).toLocaleDateString()}</span>
+                        <span>{entry.sessionDate.toLocaleDateString()}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Clock className="h-4 w-4" />
-                        <span>{new Date(entry.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span>{entry.sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                       <span>with {entry.therapist}</span>
                     </div>
@@ -224,7 +286,7 @@ export default function SessionsPage() {
             ))}
           </div>
 
-          {/* Pagination or Load More */}
+          {/* Pagination / Load More */}
           <div className="mt-6 flex justify-center">
             <Button
               variant="outline"

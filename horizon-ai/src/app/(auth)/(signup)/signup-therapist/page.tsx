@@ -67,7 +67,8 @@ const SignUpPage = () => {
       // Create user document in Firestore
       await setDoc(doc(db, "users", user.uid), {
         email: formData.email,
-        name: `${formData.firstName} ${formData.lastName}`,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
         role: formData.role,
       });
 

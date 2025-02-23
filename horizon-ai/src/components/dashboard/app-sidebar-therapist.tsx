@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import Image from 'next/image';
+import Image from 'next/image'
 import { 
   Home,
   Calendar,
@@ -15,6 +15,10 @@ import {
   LogOut,
   MessageSquare
 } from "lucide-react"
+import { signOut } from "firebase/auth"
+import { auth } from "@/app/utils/firebase/config"
+import { getFirestore, doc, getDoc } from "firebase/firestore"
+import { onAuthStateChanged } from "firebase/auth"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -27,8 +31,6 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar"
-import { signOut } from "firebase/auth"
-import { auth } from "@/app/utils/firebase/config"
 
 const mainNavItems = [
   { 
@@ -77,6 +79,34 @@ const settingsNavItems = [
 
 export function TherapistSidebar() {
   const pathname = usePathname()
+  interface UserProfile {
+    first_name: string;
+    last_name: string;
+    role: string;
+  }
+  
+  const [userProfile, setUserProfile] = React.useState<UserProfile | null>(null)
+
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const db = getFirestore()
+        const userDocRef = doc(db, "users", user.uid)
+        const userDocSnap = await getDoc(userDocRef)
+        if (userDocSnap.exists()) {
+          setUserProfile(userDocSnap.data() as UserProfile)
+        } else {
+          setUserProfile(null)
+        }
+      } else {
+        setUserProfile(null)
+      }
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
 
   const handleLogout = async () => {
     try {
@@ -94,6 +124,16 @@ export function TherapistSidebar() {
       console.error('Error during logout:', error)
     }
   }
+
+  // Compose full name if userProfile is available
+  const fullName = userProfile
+    ? `${userProfile.first_name} ${userProfile.last_name}`
+    : "Loading..."
+
+  // Capitalize the role if available
+  const userRole = userProfile && userProfile.role
+    ? userProfile.role.charAt(0).toUpperCase() + userProfile.role.slice(1)
+    : "Therapist"
 
   return (
     <Sidebar className="flex flex-col h-screen">
@@ -172,8 +212,12 @@ export function TherapistSidebar() {
                 <UserCircle className="h-6 w-6 text-[#146C94]" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-medium text-[#146C94]">Dr. Emily Wilson</span>
-                <span className="text-xs text-[#146C94]/70">Clinical Psychologist</span>
+                <span className="text-sm font-medium text-[#146C94]">
+                  {fullName}
+                </span>
+                <span className="text-xs text-[#146C94]/70">
+                  {userRole}
+                </span>
               </div>
             </div>
           </div>
@@ -181,35 +225,35 @@ export function TherapistSidebar() {
           {/* Settings and Logout Section */}
           <div className="p-2">
             <SidebarMenu>
-            {settingsNavItems.map((item) => (
-              <SidebarMenuItem key={item.url}>
-                <SidebarMenuButton 
-                  asChild 
-                  isActive={pathname === item.url}
-                  className={`
-                    w-full p-3 rounded-lg transition-colors duration-200
-                    ${item.className || (pathname === item.url 
-                      ? 'bg-[#146C94] text-white' 
-                      : 'text-[#146C94] hover:bg-[#146C94]/10')}
-                  `}
-                >
-                  {item.url === '/logout' ? (
-                    <button 
-                      onClick={handleLogout}
-                      className="flex items-center gap-3 w-full"
-                    >
-                      <item.icon className="h-5 w-5" />
-                      <span className="font-medium">{item.title}</span>
-                    </button>
-                  ) : (
-                    <Link href={item.url} className="flex items-center gap-3">
-                      <item.icon className="h-5 w-5" />
-                      <span className="font-medium">{item.title}</span>
-                    </Link>
-                  )}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+              {settingsNavItems.map((item) => (
+                <SidebarMenuItem key={item.url}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={pathname === item.url}
+                    className={`
+                      w-full p-3 rounded-lg transition-colors duration-200
+                      ${item.className || (pathname === item.url 
+                        ? 'bg-[#146C94] text-white' 
+                        : 'text-[#146C94] hover:bg-[#146C94]/10')}
+                    `}
+                  >
+                    {item.url === '/logout' ? (
+                      <button 
+                        onClick={handleLogout}
+                        className="flex items-center gap-3 w-full"
+                      >
+                        <item.icon className="h-5 w-5" />
+                        <span className="font-medium">{item.title}</span>
+                      </button>
+                    ) : (
+                      <Link href={item.url} className="flex items-center gap-3">
+                        <item.icon className="h-5 w-5" />
+                        <span className="font-medium">{item.title}</span>
+                      </Link>
+                    )}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </div>
         </div>
