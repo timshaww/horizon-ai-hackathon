@@ -15,15 +15,15 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} antialiased`}>
+   
+      <div className={`${inter.className} antialiased`}>
         <SidebarProvider>
           <PatientSidebar />
           <SidebarTrigger className="ml-3 mt-3" />
-          <main className="flex-1 overflow-auto p-8 pt-16">{children}</main>
+          <div className="flex-1 overflow-auto p-8 pt-16">{children}</div>
         </SidebarProvider>
-      </body>
-    </html>
+      </div>
+    
   )
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { ConnectionDetails } from "@/lib/types";
-import { LocalUserChoices, PreJoin } from "@livekit/components-react";
+import { LocalUserChoices } from "@livekit/components-react";
 import { VideoCodec } from "livekit-client";
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 import { AlertCircle } from "lucide-react";
 import VideoConferenceComponent from "./VideoConference";
+import { PreJoin } from "./PreJoin";
 
 const CONN_DETAILS_ENDPOINT =
   process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT ?? "/api/connection-details";

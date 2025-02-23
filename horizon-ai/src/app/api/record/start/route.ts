@@ -33,11 +33,12 @@ export async function GET(req: NextRequest) {
     const egressClient = new EgressClient(hostURL.origin, LIVEKIT_API_KEY, LIVEKIT_API_SECRET);
 
     const existingEgresses = await egressClient.listEgress({ roomName });
+
     if (existingEgresses.length > 0 && existingEgresses.some((e) => e.status < 2)) {
       return new NextResponse('Meeting is already being recorded', { status: 409 });
     }
 
-    const fileName = `${roomName}.mp4`
+    const fileName = `TherapyRecording.mp4`
 
     const fileOutput = new EncodedFileOutput({
       filepath: fileName,

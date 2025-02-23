@@ -58,7 +58,7 @@ export function SettingsMenu(props: SettingsMenuProps) {
 			setInitialRecStatus(isRecording);
 			setError(null);
 
-			const response = await fetch(`${recordingEndpoint}/${isRecording ? 'stop' : 'start'}?roomName=${roomName}`);
+			const response = await fetch(`${recordingEndpoint}/${isRecording ? 'stop' : 'start'}?roomName=${room.name}`);
 
 			if (!response.ok) {
 				throw new Error(`Failed to ${isRecording ? 'stop' : 'start'} recording: ${response.statusText}`);
