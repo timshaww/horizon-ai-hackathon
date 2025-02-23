@@ -13,11 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FormData } from "../components/types";
+import WelcomeSection from "../components/ImageOverlay";
 
-interface FormData {
-  email: string;
-  password: string;
-}
+// Firebase
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/app/utils/firebase/config";
+
 
 const SignInPage = () => {
   const router = useRouter();
@@ -42,10 +44,42 @@ const SignInPage = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setError("");
-
+  
     try {
-      await signInWithEmailAndPassword(auth, formData.email, formData.password);
-      router.push("/patient");
+      // 1. Sign in with Firebase
+      const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+      const user = userCredential.user;
+      
+      // 2. Get user role from Firestore
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      const userData = userDoc.data();
+      
+      if (!userData) {
+        throw new Error("User data not found");
+      }
+  
+      // 3. Create session cookie
+      const idToken = await user.getIdToken();
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ idToken }),
+      });
+  
+      // 4. Redirect based on role
+      switch (userData.role) {
+        case "patient":
+          router.push("/patient");
+          break;
+        case "therapist":
+          router.push("/therapist");
+          break;
+        default:
+          setError("Invalid user role");
+          break;
+      }
     } catch (error) {
       console.error("Error during sign in:", error);
       setError(getFirebaseErrorMessage(error));
@@ -75,7 +109,7 @@ const SignInPage = () => {
           <div className="w-full max-w-xs">
             <form onSubmit={handleSubmit} className="flex flex-col gap-6">
               <div className="flex flex-col items-center gap-2 text-center">
-                <h1 className="text-2xl font-bold text-[#146C94]">Login to your account</h1>
+              <h1 className="text-2xl font-bold text-[#146C94]">Login to your account</h1>
                 <p className="text-balance text-sm text-[#146C94]/70">
                   Enter your email below to login to your account
                 </p>
@@ -185,7 +219,7 @@ const SignInPage = () => {
               <div className="text-center text-sm text-[#146C94]/70">
                 Don&apos;t have an account?{" "}
                 <Link 
-                  href="/signup" 
+                  href="/signup-patient" 
                   className="text-[#146C94] underline underline-offset-4 hover:text-[#146C94]/80"
                 >
                   Sign up
@@ -197,29 +231,7 @@ const SignInPage = () => {
       </div>
 
       {/* Right Section - Image with Text Overlay */}
-      <div className="relative hidden lg:block bg-gradient-to-br from-[#146C94] to-[#AFD3E2]">
-        <div className="absolute inset-0 bg-[#146C94]/50">
-          <Image
-            src="/images/mockup/3.jpg"
-            alt="Background"
-            className="w-full h-full object-cover opacity-50"
-            width={1920}
-            height={1080}
-          />
-        </div>
-        
-        {/* Welcome Text Overlay */}
-        <div className="absolute inset-0 flex flex-col justify-center px-12 lg:px-16">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold text-white">
-              Welcome Back
-            </h1>
-            <p className="text-[#F6F1F1] text-lg">
-              Sign in to continue your journey in providing better mental healthcare
-            </p>
-          </div>
-        </div>
-      </div>
+      <WelcomeSection />
     </div>
   );
 };

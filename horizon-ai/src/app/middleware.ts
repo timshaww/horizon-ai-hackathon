@@ -1,112 +1,60 @@
 // middleware.ts
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { initializeFirebaseAdmin } from './utils/firebase/admin'
 
-// Define protected routes and their allowed roles
-const PROTECTED_ROUTES = {
-  '/patient': ['patient'],
-  '/patient/settings': ['patient'],
-  '/patient/chat': ['patient'],
-  '/patient/appointments': ['patient'],
-  '/patient/profile': ['patient'],
-  '/therapist': ['therapist'],
-  '/therapist/settings': ['therapist'],
-  '/therapist/patients': ['therapist'],
-  '/therapist/appointments': ['therapist'],
-  '/therapist/profile': ['therapist']
-} as const;
-
-// Initialize Firebase Admin
-const initializeFirebaseAdmin = () => {
-  if (getApps().length === 0) {
-    initializeApp({
-      credential: cert({
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n')
-      })
-    });
-  }
-};
-
-// Get user role from Firestore
-async function getUserRole(uid: string): Promise<string> {
-  const db = getFirestore();
+export async function middleware(request: NextRequest) {
   try {
-    const userDoc = await db.collection('users').doc(uid).get();
-    if (!userDoc.exists) {
-      throw new Error('User document not found');
+    const session = request.cookies.get('session')?.value
+
+    // If no session exists, redirect immediately
+    if (!session) {
+      const response = NextResponse.redirect(new URL('/signin', request.url))
+      response.cookies.delete('session') // Clean up any invalid cookies
+      return response
     }
-    const userData = userDoc.data();
-    return userData?.role || 'unknown';
+
+    // Initialize Firebase Admin
+    const { auth, db } = initializeFirebaseAdmin()
+    
+    try {
+      // Verify session cookie and get user
+      const decodedClaim = await auth.verifySessionCookie(session, true)
+      
+      // Get user's role from Firestore
+      const userDoc = await db.collection('users').doc(decodedClaim.uid).get()
+      const userData = userDoc.data()
+      const userRole = userData?.role
+
+      // Check path and role match
+      const isPatientPath = request.nextUrl.pathname.startsWith('/patient')
+      const isTherapistPath = request.nextUrl.pathname.startsWith('/therapist')
+
+      if (isPatientPath && userRole !== 'patient') {
+        throw new Error('Unauthorized: Patient access only')
+      }
+
+      if (isTherapistPath && userRole !== 'therapist') {
+        throw new Error('Unauthorized: Therapist access only')
+      }
+
+      return NextResponse.next()
+    } catch {
+      // If session verification fails or role check fails, redirect to sign in
+      const response = NextResponse.redirect(new URL('/signin', request.url))
+      response.cookies.delete('session')
+      return response
+    }
   } catch (error) {
-    console.error('Error fetching user role:', error);
-    return 'unknown';
+    // For any other errors, redirect to sign in
+    console.error('Middleware error:', error)
+    const response = NextResponse.redirect(new URL('/signin', request.url))
+    response.cookies.delete('session')
+    return response
   }
 }
 
-export async function middleware(req: NextRequest) {
-  // Initialize Firebase Admin
-  initializeFirebaseAdmin();
-
-  const path = req.nextUrl.pathname;
-  
-  // Check if the path is protected
-  const protectedRoute = Object.keys(PROTECTED_ROUTES).find(route => 
-    path.startsWith(route)
-  );
-
-  // Allow access to public routes
-  if (!protectedRoute) {
-    return NextResponse.next();
-  }
-
-  // Get session cookie
-  const session = req.cookies.get('__session')?.value;
-
-  // Redirect to signin if no session exists
-  if (!session) {
-    const signinUrl = new URL('/signin', req.url);
-    signinUrl.searchParams.set('redirect', path);
-    return NextResponse.redirect(signinUrl);
-  }
-
-  try {
-    // Verify session cookie
-    const decodedToken = await getAuth().verifySessionCookie(session, true);
-    
-    // Get user role
-    const userRole = await getUserRole(decodedToken.uid);
-
-    if (userRole === 'unknown') {
-      return NextResponse.redirect(new URL('/signin', req.url));
-    }
-
-    // Check if user's role is allowed for this route
-    const allowedRoles = PROTECTED_ROUTES[protectedRoute as keyof typeof PROTECTED_ROUTES];
-    
-    if (!allowedRoles.includes(userRole)) {
-      // Redirect to appropriate dashboard based on role
-      const redirectPath = userRole === 'patient' ? '/patient' : '/therapist';
-      return NextResponse.redirect(new URL(redirectPath, req.url));
-    }
-
-    return NextResponse.next();
-  } catch (error) {
-    console.error('Error verifying session cookie:', error);
-    const signinUrl = new URL('/signin', req.url);
-    signinUrl.searchParams.set('redirect', path);
-    return NextResponse.redirect(signinUrl);
-  }
-}
-
-// Configure middleware matchers
+// Specify which routes to protect
 export const config = {
-  matcher: [
-    '/patient/:path*',
-    '/therapist/:path*'
-  ]
-};
+  matcher: ['/patient/:path*', '/therapist/:path*']
+}

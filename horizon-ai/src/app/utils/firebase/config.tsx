@@ -1,11 +1,8 @@
-// /utils/firebase/config.tsx
-
+// /utils/firebase/config.ts
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { getAnalytics, Analytics } from 'firebase/analytics';
-
 
 interface FirebaseConfig {
   apiKey: string | undefined;
@@ -38,13 +35,3 @@ const firebase_app: FirebaseApp = getApps().length === 0
 export const auth: Auth = getAuth(firebase_app);
 export const db: Firestore = getFirestore(firebase_app);
 export const storage = getStorage(firebase_app);
-
-
-// Initialize Analytics only on client side
-let analytics: Analytics | undefined;
-if (typeof window !== 'undefined') {
-  analytics = getAnalytics(firebase_app);
-}
-
-export { analytics };
-export default firebase_app;
