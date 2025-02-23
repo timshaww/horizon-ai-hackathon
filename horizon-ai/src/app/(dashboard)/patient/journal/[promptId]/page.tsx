@@ -18,7 +18,6 @@ import {
   AlertCircle,
   Bot,
   Send,
-  BookOpen
 } from "lucide-react"
 
 // Sample data - In a real app, this would come from an API

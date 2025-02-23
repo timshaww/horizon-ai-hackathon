@@ -45,7 +45,7 @@ const SignInPage = () => {
 
     try {
       await signInWithEmailAndPassword(auth, formData.email, formData.password);
-      router.push("/dashboard");
+      router.push("/patient");
     } catch (error) {
       console.error("Error during sign in:", error);
       setError(getFirebaseErrorMessage(error));

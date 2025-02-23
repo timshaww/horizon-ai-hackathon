@@ -43,6 +43,8 @@ export function SettingsMenu(props: SettingsMenuProps) {
 		}
 	}, [isRecording, initialRecStatus]);
 
+	const roomName = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
+
 	const toggleRoomRecording = async () => {
 		try {
 			if (!recordingEndpoint) {
@@ -56,7 +58,7 @@ export function SettingsMenu(props: SettingsMenuProps) {
 			setInitialRecStatus(isRecording);
 			setError(null);
 
-			const response = await fetch(`${recordingEndpoint}/${isRecording ? 'stop' : 'start'}?roomName=${room.name}`);
+			const response = await fetch(`${recordingEndpoint}/${isRecording ? 'stop' : 'start'}?roomName=${roomName}`);
 
 			if (!response.ok) {
 				throw new Error(`Failed to ${isRecording ? 'stop' : 'start'} recording: ${response.statusText}`);
