@@ -13,96 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/app/utils/firebase/config";
-
-// Password Strength Component
-const PasswordStrength: React.FC<{ password: string }> = ({ password }) => {
-  const calculateStrength = (password: string): number => {
-    let strength = 0;
-    if (password.length >= 8) strength += 1;
-    if (/\d/.test(password)) strength += 1;
-    if (/[a-z]/.test(password)) strength += 1;
-    if (/[A-Z]/.test(password)) strength += 1;
-    if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength += 1;
-    return strength;
-  };
-
-  const getStrengthText = (strength: number): string => {
-    if (password.length === 0) return '';
-    if (strength === 0) return 'Very Weak';
-    if (strength === 1) return 'Weak';
-    if (strength === 2) return 'Fair';
-    if (strength === 3) return 'Good';
-    if (strength === 4) return 'Strong';
-    return 'Very Strong';
-  };
-
-  const getStrengthColor = (strength: number): string => {
-    if (password.length === 0) return 'bg-[#AFD3E2]';
-    if (strength === 0) return 'bg-red-500';
-    if (strength === 1) return 'bg-orange-500';
-    if (strength === 2) return 'bg-yellow-500';
-    if (strength === 3) return 'bg-blue-500';
-    if (strength === 4) return 'bg-green-500';
-    return 'bg-green-600';
-  };
-
-  const strength = calculateStrength(password);
-  const strengthText = getStrengthText(strength);
-  const strengthColor = getStrengthColor(strength);
-
-  return (
-    <div className="mt-1">
-      <div className="flex h-1 w-full space-x-1">
-        {[...Array(5)].map((_, index) => (
-          <div
-            key={index}
-            className={`h-full w-1/5 rounded-full transition-colors duration-300 ${
-              index < strength + 1 ? strengthColor : 'bg-[#AFD3E2]/30'
-            }`}
-          />
-        ))}
-      </div>
-      {password.length > 0 && (
-        <div className="mt-2 flex items-center gap-2 text-xs">
-          <div className={`h-2 w-2 rounded-full ${strengthColor}`} />
-          <span className="text-[#146C94]/70">
-            Password Strength: <span className="text-[#146C94]">{strengthText}</span>
-          </span>
-        </div>
-      )}
-      {password.length > 0 && (
-        <ul className="mt-2 text-xs space-y-1 text-[#146C94]/70">
-          <li className={password.length >= 8 ? "text-green-500" : ""}>
-            • Minimum 8 characters
-          </li>
-          <li className={/[A-Z]/.test(password) ? "text-green-500" : ""}>
-            • At least one uppercase letter
-          </li>
-          <li className={/[a-z]/.test(password) ? "text-green-500" : ""}>
-            • At least one lowercase letter
-          </li>
-          <li className={/\d/.test(password) ? "text-green-500" : ""}>
-            • At least one number
-          </li>
-          <li className={/[!@#$%^&*(),.?":{}|<>]/.test(password) ? "text-green-500" : ""}>
-            • At least one special character
-          </li>
-        </ul>
-      )}
-    </div>
-  );
-};
-
-interface FormData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-  role: string;
-}
+import PasswordStrength from "../components/PasswordStrength";
+import WelcomeSection from "../components/ImageOverlay";
+import { FormData } from "../components/types";
 
 const SignUpPage = () => {
   const router = useRouter();
@@ -116,10 +32,12 @@ const SignUpPage = () => {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "therapist",
+    role: "patient",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -146,21 +64,37 @@ const SignUpPage = () => {
         formData.password
       );
       const user = userCredential.user;
+      
+      // Create user document in Firestore
       await setDoc(doc(db, "users", user.uid), {
         email: formData.email,
         name: `${formData.firstName} ${formData.lastName}`,
         role: formData.role,
       });
+
+      // Create session cookie
+      const idToken = await user.getIdToken();
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ idToken }),
+      });
+
+      // Redirect based on role
       switch (formData.role) {
+        case "patient":
+          router.push("/patient");
+          break;
         case "therapist":
           router.push("/therapist");
           break;
         default:
           router.push("/");
           break;
-    } 
-  }
-    catch (error) {
+      }
+    } catch (error) {
       console.error("Error during sign up:", error);
       setError(getFirebaseErrorMessage(error));
     } finally {
@@ -175,11 +109,11 @@ const SignUpPage = () => {
         {/* Logo container */}
         <div className="flex justify-center lg:justify-start w-full">
           <Link href="/" className="flex items-center gap-2">
-            <Image 
-              src="/logo/therapyAI-black.png" 
-              alt="therapyAI Logo" 
-              width={100} 
-              height={100} 
+            <Image
+              src="/logo/therapyAI-black.png"
+              alt="therapyAI Logo"
+              width={100}
+              height={100}
               className="max-h-10 w-auto"
             />
           </Link>
@@ -189,7 +123,9 @@ const SignUpPage = () => {
           <div className="w-full max-w-xs">
             <form onSubmit={handleSubmit} className="flex flex-col gap-6">
               <div className="flex flex-col items-center gap-2 text-center">
-                <h1 className="text-2xl font-bold text-[#146C94]">Create an account</h1>
+                <h1 className="text-2xl font-bold text-[#146C94]">
+                  Create an account
+                </h1>
                 <p className="text-balance text-sm text-[#146C94]/70">
                   Enter your details below to create your account
                 </p>
@@ -203,7 +139,11 @@ const SignUpPage = () => {
 
               <div className="grid gap-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Button variant="outline" className="w-full cursor-not-allowed opacity-60 border-[#AFD3E2]" disabled>
+                  <Button
+                    variant="outline"
+                    className="w-full cursor-not-allowed opacity-60 border-[#AFD3E2]"
+                    disabled
+                  >
                     <Image
                       src="/images/icons/google.png"
                       alt="Google icon"
@@ -213,7 +153,11 @@ const SignUpPage = () => {
                     />
                     Google
                   </Button>
-                  <Button variant="outline" className="w-full cursor-not-allowed opacity-60 border-[#AFD3E2]" disabled>
+                  <Button
+                    variant="outline"
+                    className="w-full cursor-not-allowed opacity-60 border-[#AFD3E2]"
+                    disabled
+                  >
                     <Image
                       src="/images/icons/apple.png"
                       alt="Apple icon"
@@ -230,13 +174,17 @@ const SignUpPage = () => {
                     <div className="w-full border-t border-[#AFD3E2]"></div>
                   </div>
                   <div className="relative flex justify-center text-[#146C94]/70">
-                    <span className="bg-white px-2">Or continue with email</span>
+                    <span className="bg-white px-2">
+                      Or continue with email
+                    </span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="grid gap-2">
-                    <Label htmlFor="firstName" className="text-[#146C94]">First name</Label>
+                    <Label htmlFor="firstName" className="text-[#146C94]">
+                      First name
+                    </Label>
                     <Input
                       id="firstName"
                       name="firstName"
@@ -247,7 +195,9 @@ const SignUpPage = () => {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="lastName" className="text-[#146C94]">Last name</Label>
+                    <Label htmlFor="lastName" className="text-[#146C94]">
+                      Last name
+                    </Label>
                     <Input
                       id="lastName"
                       name="lastName"
@@ -260,7 +210,9 @@ const SignUpPage = () => {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="email" className="text-[#146C94]">Email</Label>
+                  <Label htmlFor="email" className="text-[#146C94]">
+                    Email
+                  </Label>
                   <Input
                     id="email"
                     name="email"
@@ -274,7 +226,9 @@ const SignUpPage = () => {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="password" className="text-[#146C94]">Password</Label>
+                  <Label htmlFor="password" className="text-[#146C94]">
+                    Password
+                  </Label>
                   <div className="relative">
                     <Input
                       id="password"
@@ -303,7 +257,9 @@ const SignUpPage = () => {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="confirmPassword" className="text-[#146C94]">Confirm Password</Label>
+                  <Label htmlFor="confirmPassword" className="text-[#146C94]">
+                    Confirm Password
+                  </Label>
                   <div className="relative">
                     <Input
                       id="confirmPassword"
@@ -319,7 +275,9 @@ const SignUpPage = () => {
                       variant="ghost"
                       size="icon"
                       className="absolute right-0 top-0 h-full px-3 hover:bg-transparent text-[#146C94]/70 hover:text-[#146C94]"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                     >
                       {showConfirmPassword ? (
                         <EyeOff className="h-4 w-4" />
@@ -330,8 +288,8 @@ const SignUpPage = () => {
                   </div>
                 </div>
 
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full bg-[#AFD3E2] text-[#146C94] hover:bg-[#146C94] hover:text-white"
                   disabled={isSubmitting}
                 >
@@ -344,8 +302,8 @@ const SignUpPage = () => {
 
               <div className="text-center text-sm text-[#146C94]/70">
                 Already have an account?{" "}
-                <Link 
-                  href="/signin" 
+                <Link
+                  href="/signin"
                   className="text-[#146C94] underline underline-offset-4 hover:text-[#146C94]/80"
                 >
                   Sign in
@@ -357,29 +315,7 @@ const SignUpPage = () => {
       </div>
 
       {/* Right Section - Image with Text Overlay */}
-      <div className="relative hidden lg:block bg-gradient-to-br from-[#146C94] to-[#AFD3E2]">
-        <div className="absolute inset-0 bg-[#146C94]/50">
-          <Image
-            src="/images/mockup/1.jpg"
-            alt="Background"
-            className="w-full h-full object-cover opacity-50"
-            width={1920}
-            height={1080}
-          />
-        </div>
-        
-        {/* Welcome Text Overlay */}
-        <div className="absolute inset-0 flex flex-col justify-center px-12 lg:px-16">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold text-white">
-              Join Our Community of Therapists
-            </h1>
-            <p className="text-[#F6F1F1] text-lg">
-              Create an account to start providing better mental healthcare
-            </p>
-          </div>
-        </div>
-      </div>
+      <WelcomeSection />
     </div>
   );
 };

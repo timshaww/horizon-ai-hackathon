@@ -5,7 +5,7 @@ import { db } from './config';
 interface WaitlistEntry {
   fullName: string;
   email: string;
-  createdAt?: any;
+  createdAt?: unknown;
 }
 
 export const addToWaitlist = async (data: WaitlistEntry) => {
