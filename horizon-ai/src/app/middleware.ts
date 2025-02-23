@@ -5,14 +5,21 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
+// Define protected routes and their allowed roles
 const PROTECTED_ROUTES = {
   '/patient': ['patient'],
   '/patient/settings': ['patient'],
+  '/patient/chat': ['patient'],
+  '/patient/appointments': ['patient'],
+  '/patient/profile': ['patient'],
   '/therapist': ['therapist'],
-  '/therapist/settings': ['therapist']
-};
+  '/therapist/settings': ['therapist'],
+  '/therapist/patients': ['therapist'],
+  '/therapist/appointments': ['therapist'],
+  '/therapist/profile': ['therapist']
+} as const;
 
-// Initialize Firebase Admin only once
+// Initialize Firebase Admin
 const initializeFirebaseAdmin = () => {
   if (getApps().length === 0) {
     initializeApp({
@@ -25,6 +32,7 @@ const initializeFirebaseAdmin = () => {
   }
 };
 
+// Get user role from Firestore
 async function getUserRole(uid: string): Promise<string> {
   const db = getFirestore();
   try {
@@ -41,6 +49,7 @@ async function getUserRole(uid: string): Promise<string> {
 }
 
 export async function middleware(req: NextRequest) {
+  // Initialize Firebase Admin
   initializeFirebaseAdmin();
 
   const path = req.nextUrl.pathname;
@@ -50,21 +59,23 @@ export async function middleware(req: NextRequest) {
     path.startsWith(route)
   );
 
-  // If not a protected route, continue
+  // Allow access to public routes
   if (!protectedRoute) {
     return NextResponse.next();
   }
 
-  // Get the session cookie
+  // Get session cookie
   const session = req.cookies.get('__session')?.value;
 
-  // If no session, redirect to signin
+  // Redirect to signin if no session exists
   if (!session) {
-    return NextResponse.redirect(new URL('/signin', req.url));
+    const signinUrl = new URL('/signin', req.url);
+    signinUrl.searchParams.set('redirect', path);
+    return NextResponse.redirect(signinUrl);
   }
 
   try {
-    // Verify the session cookie
+    // Verify session cookie
     const decodedToken = await getAuth().verifySessionCookie(session, true);
     
     // Get user role
@@ -86,11 +97,13 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   } catch (error) {
     console.error('Error verifying session cookie:', error);
-    return NextResponse.redirect(new URL('/signin', req.url));
+    const signinUrl = new URL('/signin', req.url);
+    signinUrl.searchParams.set('redirect', path);
+    return NextResponse.redirect(signinUrl);
   }
 }
 
-// Specify which routes this middleware should run on
+// Configure middleware matchers
 export const config = {
   matcher: [
     '/patient/:path*',
