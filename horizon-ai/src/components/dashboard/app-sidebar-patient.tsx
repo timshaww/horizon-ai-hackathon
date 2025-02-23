@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import Image from 'next/image';
 import { 
   Home,
   Calendar,
@@ -12,6 +13,8 @@ import {
   BellRing,
   LogOut
 } from "lucide-react"
+import { signOut } from "firebase/auth"
+import { auth } from "@/app/utils/firebase/config"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -61,9 +64,21 @@ const settingsNavItems = [
 export function PatientSidebar() {
   const pathname = usePathname()
   
-  const handleLogout = () => {
-    // Add your logout logic here
-    console.log("Logging out...")
+  const handleLogout = async () => {
+    try {
+      // First clear the session cookie
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+      })
+      
+      // Then sign out from Firebase
+      await signOut(auth)
+      
+      // Finally redirect
+      window.location.href = '/signin'
+    } catch (error) {
+      console.error('Error during logout:', error)
+    }
   }
 
   return (
@@ -71,9 +86,11 @@ export function PatientSidebar() {
       {/* Logo Section */}
       <SidebarHeader className="px-4 py-6 border-b">
         <Link href="/patient" className="flex items-center gap-3">
-          <img 
+          <Image 
             src="/logo/therapyAI-black.png"
             alt="TherapyAI"
+            width={1980}
+            height={1080}
             className="h-8 w-auto"
           />
         </Link>
@@ -150,35 +167,35 @@ export function PatientSidebar() {
           {/* Settings and Logout Section */}
           <div className="p-2">
             <SidebarMenu>
-              {settingsNavItems.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={pathname === item.url}
-                    className={`
-                      w-full p-3 rounded-lg transition-colors duration-200
-                      ${item.className || (pathname === item.url 
-                        ? 'bg-[#146C94] text-white' 
-                        : 'text-[#146C94] hover:bg-[#146C94]/10')}
-                    `}
-                  >
-                    {item.url === '/logout' ? (
-                      <button 
-                        onClick={handleLogout}
-                        className="flex items-center gap-3 w-full"
-                      >
-                        <item.icon className="h-5 w-5" />
-                        <span className="font-medium">{item.title}</span>
-                      </button>
-                    ) : (
-                      <Link href={item.url} className="flex items-center gap-3">
-                        <item.icon className="h-5 w-5" />
-                        <span className="font-medium">{item.title}</span>
-                      </Link>
-                    )}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+            {settingsNavItems.map((item) => (
+              <SidebarMenuItem key={item.url}>
+                <SidebarMenuButton 
+                  asChild 
+                  isActive={pathname === item.url}
+                  className={`
+                    w-full p-3 rounded-lg transition-colors duration-200
+                    ${item.className || (pathname === item.url 
+                      ? 'bg-[#146C94] text-white' 
+                      : 'text-[#146C94] hover:bg-[#146C94]/10')}
+                  `}
+                >
+                  {item.url === '/logout' ? (
+                    <button 
+                      onClick={handleLogout}
+                      className="flex items-center gap-3 w-full"
+                    >
+                      <item.icon className="h-5 w-5" />
+                      <span className="font-medium">{item.title}</span>
+                    </button>
+                  ) : (
+                    <Link href={item.url} className="flex items-center gap-3">
+                      <item.icon className="h-5 w-5" />
+                      <span className="font-medium">{item.title}</span>
+                    </Link>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
             </SidebarMenu>
           </div>
         </div>

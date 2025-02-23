@@ -122,7 +122,6 @@ const FinalQuoteSection: React.FC = () => {
       onMouseMove={(e: React.MouseEvent<HTMLElement>) => {
         // Update all floating elements
         document.querySelectorAll('.floating-element').forEach((element) => {
-          const rect = element.getBoundingClientRect();
           const event = new MouseEvent('mousemove', {
             clientX: e.clientX,
             clientY: e.clientY,
@@ -171,7 +170,7 @@ const FinalQuoteSection: React.FC = () => {
         className="relative z-10 max-w-3xl mx-auto text-center px-8"
       >
         <blockquote className="text-2xl md:text-3xl font-semibold text-black leading-relaxed mb-8">
-          "Lokin is absolutely amazing. It has transformed my network workflow."
+          &quot;Lokin is absolutely amazing. It has transformed my network workflow.&quot;
         </blockquote>
         <p className="mt-6 text-lg text-gray-700">
           Pavel Stepanov

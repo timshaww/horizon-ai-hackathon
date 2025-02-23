@@ -1,44 +1,46 @@
 // hooks/useAuth.ts
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { onAuthStateChanged } from 'firebase/auth'
-import { doc, onSnapshot } from 'firebase/firestore'
+import { onAuthStateChanged, User } from 'firebase/auth'
+import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/app/utils/firebase/config'
 
 export function useAuth(requiredRole?: 'patient' | 'therapist') {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
-  const [user, setUser] = useState<unknown>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      setUser(user)
+      
       if (user) {
-        // User is signed in
-        setUser(user)
-        
-        // Subscribe to user document to get role
-        const unsubscribeDoc = onSnapshot(doc(db, 'users', user.uid), (doc) => {
-          const userData = doc.data()
+        try {
+          // Use single document fetch instead of real-time subscription
+          const userDoc = await getDoc(doc(db, 'users', user.uid))
+          const userData = userDoc.data()
           setRole(userData?.role || null)
-          setIsLoading(false)
 
           // Redirect if role doesn't match required role
           if (requiredRole && userData?.role !== requiredRole) {
-            router.push(`/signin`)
+            router.replace('/signin')
           }
-        })
-
-        return () => unsubscribeDoc()
+        } catch (error) {
+          console.error('Error fetching user data:', error)
+          setRole(null)
+          if (requiredRole) {
+            router.replace('/signin')
+          }
+        }
       } else {
-        // User is signed out
-        setUser(null)
         setRole(null)
-        setIsLoading(false)
         if (requiredRole) {
-          router.push(`/signin`)
+          router.replace('/signin')
         }
       }
+      
+      setIsLoading(false)
     })
 
     return () => unsubscribeAuth()
