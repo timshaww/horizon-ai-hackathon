@@ -9,6 +9,50 @@ const FooterDashboard = () => {
 	const currentYear = new Date().getFullYear();
 	const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
+
+  const footerSections = [
+    {
+      title: 'Platform',
+      links: [
+        { label: 'For Therapists', href: '/therapists' },
+        { label: 'For Patients', href: '/patients' },
+        { label: 'AI Session Summary', href: '/ai-summary' },
+        { label: 'Session Management', href: '/session-management' },
+        { label: 'Security & Privacy', href: '/security' },
+        { label: 'Integration APIs', href: '/docs/api' },
+      ],
+    },
+    {
+      title: 'Company',
+      links: [
+        { label: 'About Us', href: '/about' },
+        { label: 'Mental Health Blog', href: '/blog' },
+        { label: 'Success Stories', href: '/stories' },
+        { label: 'Counselor Partnership', href: '/partners' },
+        { label: 'Contact Us', href: '/contact' },
+      ],
+    },
+    {
+      title: 'Resources',
+      links: [
+        { label: 'Help Center', href: '/help' },
+        { label: 'Counselor Community', href: '/community' },
+        { label: 'Patient Resources', href: '/resources' },
+        { label: 'Mental Health Events', href: '/events' },
+        { label: 'Training & Guides', href: '/training' },
+      ],
+    },
+    {
+      title: 'Legal',
+      links: [
+        { label: 'Privacy Policy', href: '/privacy' },
+        { label: 'Terms of Service', href: '/terms' },
+        { label: 'HIPAA Compliance', href: '/hipaa' },
+        { label: 'Data Protection', href: '/data-protection' },
+        { label: 'Platform Status', href: '/status' },
+      ],
+    },
+  ];
 	const footerSections = [
 		{
 			title: 'Platform',
