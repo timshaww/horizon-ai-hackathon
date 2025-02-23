@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
     // Cleanup: Remove temp file
     fs.unlinkSync(filePath);
 
+    console.log('🤬🤬🤬🤬🤬🤬🤬:', transcription.text);
+
     return NextResponse.json({ transcription }, { status: 200 });
   } catch (error) {
     console.error("Error:", error);

@@ -5,7 +5,6 @@ import {
   formatChatMessageLinks,
   LiveKitRoom,
   LocalUserChoices,
-  VideoConference,
 } from '@livekit/components-react';
 import {
   ExternalE2EEKeyProvider,
@@ -25,6 +24,7 @@ import { AlertCircle, ShieldCheck } from 'lucide-react';
 import { DebugMode } from '@/lib/Debug';
 import { SettingsMenu } from '@/lib/SettingsMenu';
 import { decodePassphrase } from '@/lib/client-utils';
+import { VideoConference } from './Video';
 
 const SHOW_SETTINGS_MENU = process.env.NEXT_PUBLIC_SHOW_SETTINGS_MENU == 'true';
 
@@ -113,7 +113,23 @@ function VideoConferenceComponent(props: {
       autoSubscribe: true,
     }), []);
   
-    const handleOnLeave = React.useCallback(() => router.push('/'), [router]);
+    const handleOnLeave = React.useCallback(async () => {
+      setTimeout(async () => {
+
+        console.log('🤬🤬🤬🤬🤬🤬🤬Recording stopped');
+        const response = fetch('/api/getTranscription', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ s3Key: 'TherapyRecording.mp4' }),
+        });
+  
+        const data = (await response).text;
+        console.log(data);
+        router.push('/');
+      }, 10000);
+    }, []);
     
     const handleError = React.useCallback((error: Error) => {
       console.error(error);

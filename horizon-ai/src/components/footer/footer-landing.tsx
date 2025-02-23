@@ -51,6 +51,7 @@ const FooterDashboard = () => {
 			],
 		},
 	];
+	
 
 	const toggleSection = (title: string) => {
 		setExpandedSection(expandedSection === title ? null : title);
