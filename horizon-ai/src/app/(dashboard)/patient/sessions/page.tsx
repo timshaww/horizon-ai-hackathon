@@ -133,13 +133,6 @@ export default function SessionsPage() {
           <h1 className="text-3xl font-bold text-[#146C94]">Session Review</h1>
           <p className="text-gray-600 mt-1">Review your therapy journey and progress</p>
         </div>
-        <Button 
-          className="bg-[#146C94] hover:bg-[#146C94]/90"
-          onClick={() => console.log("Add new entry")}
-        >
-          <PenLine className="mr-2 h-5 w-5" />
-          Add Personal Note
-        </Button>
       </div>
 
       {/* Latest Session Summary */}
