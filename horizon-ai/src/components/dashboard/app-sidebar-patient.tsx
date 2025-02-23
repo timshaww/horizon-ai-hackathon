@@ -10,7 +10,8 @@ import {
   Settings,
   UserCircle,
   BellRing,
-  LogOut
+  LogOut, 
+  Armchair
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -36,6 +37,11 @@ const mainNavItems = [
     url: "/patient/schedule",
     icon: Calendar,
     badge: "2"
+  },
+  { 
+    title: "Sessions",
+    url: "/patient/sessions",
+    icon: Armchair
   },
   { 
     title: "Journaling",

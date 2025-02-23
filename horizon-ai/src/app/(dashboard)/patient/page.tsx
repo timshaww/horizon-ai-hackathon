@@ -12,6 +12,7 @@ import {
   ArrowRight,
   CalendarDays
 } from "lucide-react"
+import { useRouter } from "next/router"
 
 // Helper function to get greeting based on time of day
 const getGreeting = () => {

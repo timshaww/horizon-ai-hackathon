@@ -36,7 +36,7 @@ export default function Page() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push('/patient')}
             className="text-gray-600"
           >
             <ArrowLeft className="h-5 w-5" />
