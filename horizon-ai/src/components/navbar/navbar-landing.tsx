@@ -10,7 +10,7 @@ const NavbarLanding = () => {
 
   const navigationLinks = [
     { name: 'Home', href: '/' },
-    { name: 'For Counselors', href: '/counselors' },
+    { name: 'For Therapists', href: '/therapists' },
     { name: 'For Patients', href: '/patients' },
     { name: 'About', href: '/about' },
   ];
@@ -56,7 +56,7 @@ const NavbarLanding = () => {
               Sign In
             </Link>
             <Link
-              href="/signup"
+              href="/signup-patient"
               className="bg-[#AFD3E2] text-[#146C94] px-5 py-2 rounded-md text-sm font-medium hover:bg-[#146C94] hover:text-[#F6F1F1] transition-all duration-200 shadow-sm hover:shadow-md"
             >
               Get Started
@@ -105,7 +105,7 @@ const NavbarLanding = () => {
                 Sign In
               </Link>
               <Link
-                href="/signup"
+                href="/signup-patient"
                 className="w-full bg-[#AFD3E2] text-[#146C94] px-3 py-2 rounded-md text-base font-medium hover:bg-[#146C94] hover:text-[#F6F1F1] transition-all duration-200 shadow-sm hover:shadow-md block text-center"
                 onClick={() => setIsMenuOpen(false)}
               >

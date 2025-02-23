@@ -13,7 +13,7 @@ const FooterDashboard = () => {
     {
       title: 'Platform',
       links: [
-        { label: 'For Counselors', href: '/counselors' },
+        { label: 'For Therapists', href: '/therapists' },
         { label: 'For Patients', href: '/patients' },
         { label: 'AI Session Summary', href: '/ai-summary' },
         { label: 'Session Management', href: '/session-management' },
