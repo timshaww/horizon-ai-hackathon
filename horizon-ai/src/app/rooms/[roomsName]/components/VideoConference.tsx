@@ -5,7 +5,6 @@ import {
   formatChatMessageLinks,
   LiveKitRoom,
   LocalUserChoices,
-  VideoConference,
 } from '@livekit/components-react';
 import {
   ExternalE2EEKeyProvider,
@@ -25,6 +24,7 @@ import { AlertCircle, ShieldCheck } from 'lucide-react';
 import { DebugMode } from '@/lib/Debug';
 import { SettingsMenu } from '@/lib/SettingsMenu';
 import { decodePassphrase } from '@/lib/client-utils';
+import { VideoConference } from './Video';
 
 const SHOW_SETTINGS_MENU = process.env.NEXT_PUBLIC_SHOW_SETTINGS_MENU == 'true';
 
