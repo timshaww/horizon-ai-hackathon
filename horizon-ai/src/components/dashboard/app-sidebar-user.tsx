@@ -70,7 +70,7 @@ export function PatientSidebar() {
     <Sidebar className="flex flex-col h-screen">
       {/* Logo Section */}
       <SidebarHeader className="px-4 py-6 border-b">
-        <Link href="/dashboard" className="flex items-center gap-3">
+        <Link href="/patient" className="flex items-center gap-3">
           <img 
             src="/logo/therapyAI-black.png"
             alt="TherapyAI"

@@ -17,7 +17,6 @@ import {
   Users,
   Calendar as CalendarIcon,
   Clock,
-  Filter,
   Plus
 } from "lucide-react"
 
