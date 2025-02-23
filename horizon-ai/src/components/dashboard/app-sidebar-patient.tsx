@@ -23,7 +23,6 @@ import {
   collection, 
   query, 
   where, 
-  orderBy, 
   getDocs 
 } from "firebase/firestore"
 import { onAuthStateChanged } from "firebase/auth"
@@ -40,7 +39,16 @@ import {
   SidebarMenuButton,
 } from "@/components/ui/sidebar"
 
-const mainNavItems = [
+// Define an interface for navigation items
+interface NavItem {
+  title: string;
+  url: string;
+  icon: React.ComponentType<any>;
+  badge?: string; // Optional badge property
+  className?: string; // Optional for settings items like Logout
+}
+
+const mainNavItems: NavItem[] = [
   { 
     title: "Home",
     url: "/patient",
@@ -63,7 +71,7 @@ const mainNavItems = [
   }
 ]
 
-const settingsNavItems = [
+const settingsNavItems: NavItem[] = [
   { 
     title: "Settings",
     url: "/patient/settings",

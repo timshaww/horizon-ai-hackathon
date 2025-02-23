@@ -190,13 +190,6 @@ export default function JournalPage() {
           <h1 className="text-3xl font-bold text-[#146C94]">Journal</h1>
           <p className="text-gray-600 mt-1">Reflect on your therapy sessions</p>
         </div>
-        <Button
-          className="bg-[#146C94] hover:bg-[#146C94]/90"
-          onClick={() => console.log("Add personal journal entry")}
-        >
-          <PenLine className="mr-2 h-5 w-5" />
-          Add Personal Note
-        </Button>
       </div>
 
       {/* Unanswered Prompts */}
