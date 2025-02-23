@@ -76,7 +76,7 @@ export function PageClientImpl(props: {
   }, []);
 
   return (
-    <main className="min-h-screen bg-background" data-lk-theme="default">
+    <main className="h-screen bg-background" data-lk-theme="default">
       {error && (
         <Alert
           variant="destructive"

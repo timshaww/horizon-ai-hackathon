@@ -138,6 +138,10 @@
   .text-brand-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-[#146C94] via-[#AFD3E2] to-[#146C94];
   }
+
+  .custom-track-toggle button {
+    @apply bg-[#AFD3E2] text-[#146C94] px-6 py-3 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 hover:bg-[#146C94] hover:text-white;
+  }
 }
 
 /* Custom components */
