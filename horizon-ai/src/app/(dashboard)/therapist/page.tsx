@@ -37,15 +37,15 @@ interface UserProfile {
 // Define a proper interface for a session document
 export interface Session {
   id: string;
-  sessionDate: Date;       // Full date and time of the session
-  therapist: string;       // Therapist's name (e.g., "Dr. Mom")
+  sessionDate: Date;
+  therapist: string;
   therapistId: string;
   summary: string;
-  detailedNotes?: string;  // Optional detailed notes
+  detailedNotes?: string;
   keyPoints: string[];
   insights: string[];
   mood: string;
-  progress: string;        // E.g., "Upcoming", "Completed", etc.
+  progress: string;
   goals: string[];
   warnings: string[];
   transcript: string;
@@ -53,11 +53,12 @@ export interface Session {
   journalingResponse: string;
   patientId: string;
   status: string;
-  patientName?: string;    // The patient's first and last name
+  patientName?: string;
 }
 
 export default function TherapistDashboard() {
   const [todaySchedule, setTodaySchedule] = useState<Session[]>([])
+  const [totalPatients, setTotalPatients] = useState<number>(0) // Added for total patients
   const [loadingSchedule, setLoadingSchedule] = useState(true)
   const [greeting, setGreeting] = useState<string>("")
   const [therapistProfile, setTherapistProfile] = useState<UserProfile | null>(null)
@@ -95,9 +96,9 @@ export default function TherapistDashboard() {
     fetchProfile()
   }, [])
 
-  // Fetch today's schedule from Firestore for the logged-in therapist
+  // Fetch today's schedule and total patients from Firestore
   useEffect(() => {
-    const fetchTodaySchedule = async () => {
+    const fetchData = async () => {
       try {
         const currentUser = auth.currentUser
         if (!currentUser) {
@@ -105,20 +106,21 @@ export default function TherapistDashboard() {
           return
         }
         const db = getFirestore()
+        const therapistId = currentUser.uid
+
+        // Fetch today's schedule
         const sessionsRef = collection(db, "sessions")
-        // Compute the start and end of today
         const now = new Date()
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
         const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
-        // Query sessions where therapistId equals currentUser.uid and sessionDate is between start and end of today
-        const q = query(
+        const todayQuery = query(
           sessionsRef,
-          where("therapistId", "==", currentUser.uid),
+          where("therapistId", "==", therapistId),
           where("sessionDate", ">=", startOfToday),
           where("sessionDate", "<", endOfToday)
         )
-        const querySnapshot = await getDocs(q)
-        let schedule: Session[] = querySnapshot.docs.map(doc => {
+        const todaySnapshot = await getDocs(todayQuery)
+        let schedule: Session[] = todaySnapshot.docs.map(doc => {
           const data = doc.data()
           return {
             id: doc.id,
@@ -140,8 +142,8 @@ export default function TherapistDashboard() {
             status: data.status || "",
           }
         })
-        
-        // For each session, fetch the patient's user document and update patientName
+
+        // Fetch patient names for today's schedule
         const scheduleWithPatientNames = await Promise.all(
           schedule.map(async (session) => {
             try {
@@ -160,22 +162,33 @@ export default function TherapistDashboard() {
             return { ...session, patientName: session.patientId }
           })
         )
-
-        // Sort schedule items by time ascending
         scheduleWithPatientNames.sort((a, b) => a.sessionDate.getTime() - b.sessionDate.getTime())
         setTodaySchedule(scheduleWithPatientNames)
+
+        // Fetch total patients (unique patient IDs across all sessions for this therapist)
+        const allSessionsQuery = query(
+          sessionsRef,
+          where("therapistId", "==", therapistId)
+        )
+        const allSessionsSnapshot = await getDocs(allSessionsQuery)
+        const patientIds = new Set<string>()
+        allSessionsSnapshot.forEach(doc => {
+          patientIds.add(doc.data().patientId)
+        })
+        setTotalPatients(patientIds.size)
+
       } catch (error) {
-        console.error("Error fetching today's schedule:", error)
+        console.error("Error fetching data:", error)
       } finally {
         setLoadingSchedule(false)
       }
     }
 
-    fetchTodaySchedule()
+    fetchData()
   }, [])
 
   if (loadingSchedule) {
-    return <div className="p-6 max-w-6xl mx-auto">Loading today's schedule...</div>
+    return <div className="p-6 max-w-6xl mx-auto">Loading dashboard...</div>
   }
 
   return (
@@ -183,7 +196,7 @@ export default function TherapistDashboard() {
       {/* Header Section */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-[#146C94]">
-          {greeting}, Dr. {therapistProfile ? therapistProfile.last_name : "Loading..."} Welcome!
+          {greeting}, Dr. {therapistProfile ? therapistProfile.last_name : "Loading..."}!
         </h1>
         <p className="text-gray-600 mt-2">
           You have {todaySchedule.length} session{todaySchedule.length !== 1 && "s"} scheduled for today
@@ -196,7 +209,7 @@ export default function TherapistDashboard() {
           <CardContent className="pt-6">
             <div className="flex flex-col items-center">
               <Users className="h-8 w-8 text-[#146C94] mb-2" />
-              <p className="text-2xl font-bold text-[#146C94]">12</p>
+              <p className="text-2xl font-bold text-[#146C94]">{totalPatients}</p>
               <p className="text-sm text-[#146C94]/70">Total Patients</p>
             </div>
           </CardContent>
