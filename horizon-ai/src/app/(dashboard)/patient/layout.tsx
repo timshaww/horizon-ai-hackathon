@@ -1,33 +1,40 @@
+
 // app/patient/layout.tsx
 import { Inter } from "next/font/google";
+import { redirect } from 'next/navigation';
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { PatientSidebar } from "@/components/dashboard/app-sidebar-user";
-import { redirect } from 'next/navigation';
 import { auth, db } from '@/app/utils/firebase/config';
 import { getDoc, doc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { cookies } from 'next/headers';
 
 const inter = Inter({ subsets: ["latin"] });
 
-// Check if user has patient role
-async function checkUserRole(userId: string) {
+// Check user authentication and role
+async function checkAuth() {
+  const sessionCookie = cookies().get('__session');
+  
+  if (!sessionCookie?.value) {
+    redirect('/signin');
+  }
+
   try {
-    const userDocRef = doc(db, 'users', userId);
+    const userDocRef = doc(db, 'users', auth.currentUser?.uid || '');
     const userDoc = await getDoc(userDocRef);
     
     if (!userDoc.exists()) {
-      throw new Error('User document not found');
+      redirect('/signin');
     }
 
     const userData = userDoc.data();
     
     if (userData?.role !== 'patient') {
-      redirect('/therapist'); // Redirect to therapist dashboard if user is a therapist
+      redirect('/therapist');
     }
 
     return userData;
   } catch (error) {
-    console.error('Role check failed:', error);
+    console.error('Auth check failed:', error);
     redirect('/signin');
   }
 }
@@ -37,24 +44,7 @@ export default async function PatientLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Check if user is authenticated
-  const currentUser = auth.currentUser;
-  
-  if (!currentUser) {
-    // Set up auth state observer
-    await new Promise((resolve) => {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        unsubscribe();
-        if (!user) {
-          redirect('/signin');
-        }
-        resolve(user);
-      });
-    });
-  }
-
-  // Check user role before rendering
-  await checkUserRole(currentUser?.uid || '');
+  await checkAuth();
 
   return (
     <html lang="en" suppressHydrationWarning>
