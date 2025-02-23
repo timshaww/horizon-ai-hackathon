@@ -20,7 +20,6 @@ import {
   Send,
 } from "lucide-react"
 
-
 // Sample data - In a real app, this would come from an API
 const journalEntry = {
   id: 1,
@@ -256,7 +255,7 @@ export default function SessionDetailsPage() {
                 <div className="text-center py-4">
                   <Bot className="h-8 w-8 text-[#146C94]/40 mx-auto mb-2" />
                   <p className="text-gray-500 text-sm">
-                    Ask me anything about this session&apos;s insights and recommendations.
+                    Ask me anything about this session's insights and recommendations.
                   </p>
                 </div>
               ) : (
