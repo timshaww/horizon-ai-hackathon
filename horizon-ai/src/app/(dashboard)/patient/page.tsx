@@ -69,17 +69,14 @@ export default function PatientDashboard() {
   }
 
   useEffect(() => {
-    // Set initial greeting and random quote
     setGreeting(getGreeting())
     const randomQuote = quotes[Math.floor(Math.random() * quotes.length)]
     setQuote(randomQuote)
 
-    // Update greeting every minute
     const interval = setInterval(() => {
       setGreeting(getGreeting())
     }, 60000)
 
-    // Fetch user data and sessions
     const auth = getAuth()
     const db = getFirestore()
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -95,7 +92,6 @@ export default function PatientDashboard() {
               user.email ? user.email.split("@")[0] : "User")
           }
 
-          // Fetch sessions
           const sessionsRef = collection(db, "sessions")
           const q = query(sessionsRef, where("patientId", "==", uid))
           const querySnapshot = await getDocs(q)
@@ -115,15 +111,10 @@ export default function PatientDashboard() {
             })
           )
 
-          // Sort sessions by date
           fetchedSessions.sort((a, b) => a.sessionDate.getTime() - b.sessionDate.getTime())
-
-          // Find next upcoming session
           const now = new Date()
           const upcoming = fetchedSessions.find(session => session.sessionDate > now && session.status === "scheduled")
           setNextSession(upcoming || null)
-
-          // Find most recent past session
           const pastSessions = fetchedSessions.filter(session => session.sessionDate <= now)
           const recentPast = pastSessions[pastSessions.length - 1]
           setLastSession(recentPast || null)
@@ -150,7 +141,6 @@ export default function PatientDashboard() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      {/* Header Section */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-[#146C94]">
           {greeting}, {userName}
@@ -160,7 +150,6 @@ export default function PatientDashboard() {
         </p>
       </div>
 
-      {/* Quick Actions Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <Card className="hover:shadow-lg transition-shadow">
           <CardContent className="pt-6">
@@ -189,7 +178,7 @@ export default function PatientDashboard() {
           <CardContent className="pt-6">
             <Button 
               className="w-full bg-[#146C94] hover:bg-[#146C94]/90"
-              onClick={() => console.log("Message therapist")}
+              onClick={() => router.push("/patient/messages")}
             >
               <MessageSquare className="mr-2 h-4 w-4" />
               Message Therapist
@@ -198,9 +187,7 @@ export default function PatientDashboard() {
         </Card>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {/* Next Session Card */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -231,7 +218,6 @@ export default function PatientDashboard() {
           </CardContent>
         </Card>
 
-        {/* Last Session Summary */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -259,7 +245,6 @@ export default function PatientDashboard() {
         </Card>
       </div>
 
-      {/* Motivational Quote */}
       <Card className="bg-[#146C94]/5 border-none">
         <CardContent className="pt-6">
           <blockquote className="space-y-2">
