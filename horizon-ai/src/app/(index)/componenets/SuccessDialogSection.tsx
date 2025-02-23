@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X } from 'lucide-react';
@@ -10,7 +8,7 @@ interface SuccessDialogProps {
   email: string;
 }
 
-const SuccessDialog: React.FC<SuccessDialogProps> = ({ open, onOpenChange }) => {
+const SuccessDialog: React.FC<SuccessDialogProps> = ({ open, onOpenChange, email }) => {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onOpenChange(false);
@@ -69,7 +67,7 @@ const SuccessDialog: React.FC<SuccessDialogProps> = ({ open, onOpenChange }) => 
                   transition={{ delay: 0.2, type: "spring", damping: 15 }}
                   className="mb-8"
                 >
-                  <div className="h-24 w-24 sm:h-28 sm:w-28 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto shadow-lg">
+                  <div className="h-24 w-24 sm:h-28 sm:w-28 bg-[#146C94] rounded-full flex items-center justify-center mx-auto shadow-lg">
                     <Check className="h-12 w-12 sm:h-14 sm:w-14 text-white" strokeWidth={3} />
                   </div>
                 </motion.div>
@@ -81,31 +79,24 @@ const SuccessDialog: React.FC<SuccessDialogProps> = ({ open, onOpenChange }) => 
                   transition={{ delay: 0.3 }}
                   className="space-y-6 text-center"
                 >
-                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
-                    Welcome to the Waitlist!
+                  <h2 className="text-2xl sm:text-3xl font-bold text-[#146C94] tracking-tight">
+                    Request Received!
                   </h2>
                   <p className="text-gray-600 text-base sm:text-lg max-w-md mx-auto">
-                    You&apos;re now on the list for Lokin. We&apos;ll notify you the moment it's ready!
+                    We&apos;ll match you with a qualified therapist and send you booking details soon.
                   </p>
 
                   {/* Email Badge */}
                   <div className="flex justify-center mt-6">
                     <div className="bg-gray-50 px-6 py-3 rounded-xl inline-flex items-center shadow-sm border border-gray-100">
-                      <span className="text-gray-600 font-mono text-sm sm:text-base">help@lokin.com</span>
+                      <span className="text-gray-600 font-mono text-sm sm:text-base">{email}</span>
                     </div>
                   </div>
 
                   {/* Footer */}
                   <div className="pt-6 text-sm sm:text-base text-gray-500">
                     <p>
-                      Crafted by{" "}
-                      <a 
-                        href="https://swendl.com" 
-                        className="text-gray-900 font-medium hover:text-emerald-600 transition-colors"
-                      >
-                        @swendl
-                      </a>
-                      {" "}to help you reclaim your time.
+                      Check your email for next steps and appointment options. Your mental health journey begins here.
                     </p>
                   </div>
                 </motion.div>

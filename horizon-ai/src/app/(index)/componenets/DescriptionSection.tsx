@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import Image from 'next/image';
-import { Star, ArrowRight, Terminal, ChevronDown, ChevronUp } from "lucide-react";
+import { Terminal, ChevronDown, ChevronUp } from "lucide-react";
 import { features } from './types/feature';
 
 const TypingConsole = () => {

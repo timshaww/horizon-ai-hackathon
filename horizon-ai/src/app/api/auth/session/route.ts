@@ -10,11 +10,12 @@ export async function POST(request: NextRequest) {
     const { auth } = initializeFirebaseAdmin()
     
     // Create session cookie
-    const expiresIn = 60 * 60 * 24 * 5 * 1000 // 5 days
+    const expiresIn = 60 * 60 * 24 * 5 // 5 days in seconds (not milliseconds)
     const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn })
     
     // Set cookie
-    cookies().set('session', sessionCookie, {
+    const cookieStore = await cookies()
+    cookieStore.set('session', sessionCookie, {
       maxAge: expiresIn,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
